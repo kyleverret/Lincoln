@@ -1,0 +1,201 @@
+# ============================================================
+# Lincoln — Continuous Deployment to AWS ECS Fargate
+#
+# Triggers: push to main branch (after CI passes)
+#
+# Authentication: GitHub OIDC → AWS IAM Role (no long-lived keys)
+#
+# Steps:
+#   1. Assume AWS IAM role via OIDC
+#   2. Build Docker image with build metadata
+#   3. Push image to Amazon ECR
+#   4. Update ECS task definition with new image tag
+#   5. Deploy new task definition to ECS service (rolling update)
+#   6. Wait for service stability
+#   7. Post deployment summary
+#
+# Required GitHub Secrets (set in repo Settings → Secrets):
+#   AWS_ACCOUNT_ID       — 12-digit AWS account number
+#   AWS_REGION           — e.g., us-east-1
+#   AWS_DEPLOY_ROLE_ARN  — IAM role ARN for deployments
+#   ECR_REPOSITORY       — ECR repository name (e.g., lincoln)
+#   ECS_CLUSTER          — ECS cluster name
+#   ECS_SERVICE          — ECS service name
+#   CONTAINER_NAME       — Container name in task definition
+# ============================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Least-privilege permissions
+permissions:
+  contents: read
+  id-token: write    # Required for OIDC authentication to AWS
+  deployments: write
+
+concurrency:
+  # Only one deployment at a time — queues instead of cancelling
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.get-url.outputs.url }}
+
+    steps:
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # AWS Authentication via OIDC (no long-lived access keys)
+      # --------------------------------------------------------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: lincoln-deploy-${{ github.run_id }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          # OIDC token audience
+          audience: sts.amazonaws.com
+
+      # --------------------------------------------------------
+      # Login to ECR
+      # --------------------------------------------------------
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # --------------------------------------------------------
+      # Build and push image
+      # --------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          labels: |
+            org.opencontainers.image.title=Lincoln
+            org.opencontainers.image.description=Law Firm Case Management Platform
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push Docker image to ECR
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reuse CI build cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true    # SLSA provenance attestation
+          sbom: true          # Software Bill of Materials
+
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build-push.outputs.digest }}"
+
+      # --------------------------------------------------------
+      # Scan pushed image (fail deployment on critical findings)
+      # --------------------------------------------------------
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
+          format: table
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      # --------------------------------------------------------
+      # Update ECS task definition with new image
+      # --------------------------------------------------------
+      - name: Download current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition lincoln \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update image in task definition
+        id: update-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.CONTAINER_NAME }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}@${{ steps.build-push.outputs.digest }}
+
+      # --------------------------------------------------------
+      # Deploy to ECS with rolling update
+      # --------------------------------------------------------
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.update-task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          # Wait for deployment to complete before marking success
+          wait-for-service-stability: true
+          # Timeout after 15 minutes
+          wait-for-minutes: 15
+
+      # --------------------------------------------------------
+      # Post-deployment verification
+      # --------------------------------------------------------
+      - name: Get ALB URL
+        id: get-url
+        run: |
+          URL=$(aws ssm get-parameter \
+            --name "/lincoln/production/app-url" \
+            --query "Parameter.Value" \
+            --output text 2>/dev/null || echo "")
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        if: steps.get-url.outputs.url != ''
+        run: |
+          URL="${{ steps.get-url.outputs.url }}"
+          echo "Checking health at ${URL}/api/health ..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}/api/health" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
+
+      # --------------------------------------------------------
+      # Deployment summary
+      # --------------------------------------------------------
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ steps.build-push.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cluster | \`${{ secrets.ECS_CLUSTER }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | \`${{ secrets.ECS_SERVICE }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY

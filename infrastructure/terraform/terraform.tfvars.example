@@ -1,0 +1,36 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to git (it's in .gitignore).
+
+aws_region  = "us-east-1"
+environment = "production"
+
+# Network
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# Domain — must have a Route53 hosted zone
+domain_name         = "app.yourfirm.com"
+acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+route53_zone_id     = "ZXXXXXXXXXXXXXXXXXXXX"
+
+# Database
+db_instance_class        = "db.t3.medium"
+db_name                  = "lincoln"
+db_username              = "lincoln_admin"
+db_allocated_storage     = 100
+db_backup_retention_days = 35
+
+# ECS
+ecs_task_cpu      = 1024
+ecs_task_memory   = 2048
+ecs_desired_count = 2
+ecs_min_count     = 2
+ecs_max_count     = 10
+
+# GitHub
+github_org              = "your-github-org-or-username"
+github_repo             = "Lincoln"
+create_github_oidc_provider = true  # Set false if already created in this account
+
+# Alerts
+alert_email = "ops@yourfirm.com"

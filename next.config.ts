@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Required for Docker/ECS deployment — bundles server + dependencies
+  output: "standalone",
+
   // Security headers
   async headers() {
     return [

@@ -42,3 +42,11 @@ next-env.d.ts
 
 # Prisma
 prisma/migrations/dev.db
+
+# Terraform (root-level, in case anyone runs tf from repo root)
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfvars
+!**/terraform.tfvars.example
+**/*.tfplan
