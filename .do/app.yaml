@@ -1,0 +1,111 @@
+# DigitalOcean App Platform specification for Lincoln
+#
+# BEFORE FIRST DEPLOY — replace every placeholder marked <CHANGE_ME>:
+#   - your-docr-registry  → your DigitalOcean Container Registry name
+#   - your-firm.com       → your custom domain (or remove the domain block)
+#
+# Secrets (NEXTAUTH_SECRET, MASTER_ENCRYPTION_KEY, Spaces keys) must be set
+# via `doctl apps update` or the DO console after the app is created.
+# Never commit real secret values into this file.
+#
+# Reference: https://docs.digitalocean.com/products/app-platform/reference/app-spec/
+
+name: lincoln
+region: nyc
+
+# ---------------------------------------------------------------------------
+# Web service
+# ---------------------------------------------------------------------------
+services:
+  - name: web
+
+    # Image is built by GitHub Actions and pushed to DOCR.
+    # The deploy workflow updates the tag on each push to main.
+    image:
+      registry_type: DOCR
+      registry: <CHANGE_ME-your-docr-registry>
+      repository: lincoln
+      tag: latest
+
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb   # upgrade to professional-xs for prod
+
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 60
+      period_seconds: 30
+      timeout_seconds: 10
+      failure_threshold: 3
+      success_threshold: 1
+
+    # Bind the managed database URL automatically
+    envs:
+      # Database — injected from the managed DB component below
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+
+      # NextAuth
+      - key: NEXTAUTH_URL
+        scope: RUN_TIME
+        value: https://<CHANGE_ME-your-firm.com>
+      - key: NEXTAUTH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: <CHANGE_ME>          # min 32 random chars, e.g. `openssl rand -hex 32`
+
+      # Application encryption
+      - key: MASTER_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: <CHANGE_ME>          # exactly 64 hex chars (32 bytes), e.g. `openssl rand -hex 32`
+
+      # Document storage — DigitalOcean Spaces (S3-compatible)
+      - key: STORAGE_PROVIDER
+        scope: RUN_TIME
+        value: s3
+      - key: STORAGE_ENDPOINT
+        scope: RUN_TIME
+        value: https://nyc3.digitaloceanspaces.com   # change region to match your Spaces bucket
+      - key: AWS_S3_BUCKET
+        scope: RUN_TIME
+        value: lincoln-documents                      # your Spaces bucket name
+      - key: AWS_REGION
+        scope: RUN_TIME
+        value: nyc3                                   # must match STORAGE_ENDPOINT region
+      - key: AWS_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: <CHANGE_ME>          # Spaces access key (not your DO account key)
+      - key: AWS_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: <CHANGE_ME>          # Spaces secret key
+
+      # Node
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        scope: RUN_AND_BUILD_TIME
+        value: "1"
+
+# ---------------------------------------------------------------------------
+# Managed PostgreSQL 16
+# ---------------------------------------------------------------------------
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    size: db-s-1vcpu-1gb    # upgrade to db-s-1vcpu-2gb or higher for production
+    num_nodes: 1             # set to 2 for high-availability (recommended for production)
+    production: false        # set to true when ready for production workloads
+
+# ---------------------------------------------------------------------------
+# Custom domain (optional — remove this block if using the default .ondigitalocean.app URL)
+# ---------------------------------------------------------------------------
+domains:
+  - domain: <CHANGE_ME-your-firm.com>
+    type: PRIMARY
+    zone: <CHANGE_ME-your-firm.com>

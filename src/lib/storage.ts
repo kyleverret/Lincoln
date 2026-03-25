@@ -81,13 +81,20 @@ async function s3Store(
 
   // Dynamically import AWS SDK only when needed
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region: process.env.AWS_REGION });
+  const client = new S3Client({
+    region: process.env.AWS_REGION,
+    // Supports S3-compatible providers (e.g. DigitalOcean Spaces) via STORAGE_ENDPOINT
+    ...(process.env.STORAGE_ENDPOINT && {
+      endpoint: process.env.STORAGE_ENDPOINT,
+      forcePathStyle: false,
+    }),
+  });
   await client.send(
     new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET!,
       Key: key,
       Body: encrypted,
-      ServerSideEncryption: "AES256", // S3-managed encryption as additional layer
+      ServerSideEncryption: "AES256", // SSE layer on top of application-level AES-256-GCM
     })
   );
 
@@ -107,7 +114,13 @@ async function s3Retrieve(
   encryptionKeyId: string
 ): Promise<Buffer> {
   const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region: process.env.AWS_REGION });
+  const client = new S3Client({
+    region: process.env.AWS_REGION,
+    ...(process.env.STORAGE_ENDPOINT && {
+      endpoint: process.env.STORAGE_ENDPOINT,
+      forcePathStyle: false,
+    }),
+  });
   const response = await client.send(
     new GetObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET!,
@@ -125,7 +138,13 @@ async function s3Retrieve(
 
 async function s3Delete(storagePath: string): Promise<void> {
   const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region: process.env.AWS_REGION });
+  const client = new S3Client({
+    region: process.env.AWS_REGION,
+    ...(process.env.STORAGE_ENDPOINT && {
+      endpoint: process.env.STORAGE_ENDPOINT,
+      forcePathStyle: false,
+    }),
+  });
   await client.send(
     new DeleteObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET!,
