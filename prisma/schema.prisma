@@ -1,0 +1,600 @@
+// =============================================================================
+// Lincoln - Law Firm Case Management Platform
+// Prisma Schema
+//
+// Multi-tenant design: every tenant-scoped table carries tenantId.
+// Row Level Security (RLS) policies are applied via migration SQL.
+// Sensitive fields (SSN, DOB, address) are stored AES-256-GCM encrypted
+// at the application layer before persisting.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN   // Platform-wide administrator
+  FIRM_ADMIN    // Firm-level admin; can manage users and assign cases
+  ATTORNEY      // Licensed attorney; assigned to matters
+  STAFF         // Paralegal / support staff; assigned to matters
+  CLIENT        // Client portal user
+}
+
+enum Plan {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum MatterStatus {
+  INTAKE
+  ACTIVE
+  PENDING_CLIENT
+  PENDING_COURT
+  CLOSED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BillingType {
+  HOURLY
+  FLAT_FEE
+  CONTINGENCY
+  PRO_BONO
+}
+
+enum DocumentCategory {
+  PLEADING
+  DISCOVERY
+  CORRESPONDENCE
+  CONTRACT
+  EVIDENCE
+  COURT_ORDER
+  INTAKE
+  BILLING
+  OTHER
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  MFA_ENABLED
+  MFA_DISABLED
+  PASSWORD_CHANGED
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
+  MATTER_CREATED
+  MATTER_UPDATED
+  MATTER_ACCESSED
+  MATTER_CLOSED
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  CLIENT_ACCESSED
+  DOCUMENT_UPLOADED
+  DOCUMENT_ACCESSED
+  DOCUMENT_DOWNLOADED
+  DOCUMENT_DELETED
+  INTAKE_SUBMITTED
+  MESSAGE_SENT
+  TENANT_CREATED
+  TENANT_UPDATED
+  KANBAN_UPDATED
+  PERMISSION_CHANGED
+}
+
+enum MessageStatus {
+  SENT
+  READ
+  ARCHIVED
+}
+
+enum IntakeStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+}
+
+// ---------------------------------------------------------------------------
+// Tenants (Law Firms)
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique // used in URLs and for tenant resolution
+  plan             Plan     @default(PROFESSIONAL)
+  isActive         Boolean  @default(true)
+  // Encryption key handle (the actual DEK is derived via HKDF from master key)
+  encryptionKeyId  String   @default(cuid())
+  // Firm profile
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  phone            String?
+  website          String?
+  barNumber        String?
+  // Branding
+  logoUrl          String?
+  primaryColor     String?  @default("#1e40af")
+  // Settings stored as JSON
+  settings         Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users            TenantUser[]
+  clients          Client[]
+  matters          Matter[]
+  documents        Document[]
+  auditLogs        AuditLog[]
+  kanbanBoards     KanbanBoard[]
+  intakeForms      IntakeForm[]
+  messages         Message[]
+  practiceAreas    PracticeArea[]
+  customFields     CustomField[]
+
+  @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  passwordHash          String
+  firstName             String
+  lastName              String
+  phone                 String?
+  avatarUrl             String?
+  // MFA
+  mfaSecret             String?   // TOTP secret (encrypted at rest)
+  mfaEnabled            Boolean   @default(false)
+  mfaBackupCodes        String[]  @default([]) // hashed backup codes
+  // Account state
+  isActive              Boolean   @default(true)
+  emailVerified         DateTime?
+  lastLoginAt           DateTime?
+  lastLoginIp           String?
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  mustChangePassword    Boolean   @default(false)
+  passwordChangedAt     DateTime?
+  // Portal token for magic link (clients)
+  portalToken           String?   @unique
+  portalTokenExpiry     DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  tenantUsers           TenantUser[]
+  auditLogs             AuditLog[]
+  uploadedDocuments     Document[]   @relation("UploadedBy")
+  sentMessages          Message[]    @relation("SentBy")
+  matterAssignments     MatterAssignment[]
+
+  @@map("users")
+}
+
+model TenantUser {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  role       UserRole
+  title      String?  // e.g., "Senior Partner", "Paralegal"
+  department String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@map("tenant_users")
+}
+
+// ---------------------------------------------------------------------------
+// Practice Areas (per tenant)
+// ---------------------------------------------------------------------------
+
+model PracticeArea {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  color    String @default("#6b7280")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matters  Matter[]
+
+  @@unique([tenantId, name])
+  @@map("practice_areas")
+}
+
+// ---------------------------------------------------------------------------
+// Clients
+// ---------------------------------------------------------------------------
+
+model Client {
+  id                String   @id @default(cuid())
+  tenantId          String
+  // Personal info — email/phone stored plain; sensitive fields encrypted
+  firstName         String
+  lastName          String
+  email             String
+  phone             String?
+  // Encrypted fields (AES-256-GCM, stored as "<iv>:<ciphertext>" hex)
+  encDateOfBirth    String?  // encrypted DOB
+  encSsnLastFour    String?  // encrypted last 4 SSN digits
+  encAddress        String?  // encrypted street address
+  city              String?
+  state             String?
+  zipCode           String?
+  // Classification
+  clientType        String   @default("INDIVIDUAL") // INDIVIDUAL | BUSINESS
+  companyName       String?
+  isActive          Boolean  @default(true)
+  // Portal access — links to a User with CLIENT role
+  portalUserId      String?  @unique
+  portalEnabled     Boolean  @default(false)
+  // Notes encrypted
+  encNotes          String?
+  conflictChecked   Boolean  @default(false)
+  conflictNotes     String?
+  referralSource    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matters           MatterClient[]
+  intakeForms       IntakeForm[]
+  documents         Document[]
+  messages          Message[]
+  auditLogs         AuditLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@map("clients")
+}
+
+// ---------------------------------------------------------------------------
+// Matters (Cases)
+// ---------------------------------------------------------------------------
+
+model Matter {
+  id              String       @id @default(cuid())
+  tenantId        String
+  matterNumber    String       // e.g., "2024-0001" — unique per tenant
+  title           String
+  description     String?
+  practiceAreaId  String?
+  status          MatterStatus @default(INTAKE)
+  priority        Priority     @default(MEDIUM)
+  // Dates
+  openedAt        DateTime     @default(now())
+  closedAt        DateTime?
+  dueDate         DateTime?
+  statuteOfLimits DateTime?    // critical deadline
+  // Billing
+  billingType     BillingType  @default(HOURLY)
+  hourlyRate      Decimal?     @db.Decimal(10, 2)
+  flatFee         Decimal?     @db.Decimal(10, 2)
+  retainerAmount  Decimal?     @db.Decimal(10, 2)
+  // Court info
+  courtName       String?
+  caseNumber      String?      // court-assigned case number
+  judge           String?
+  opposingCounsel String?
+  // Flags
+  isActive        Boolean      @default(true)
+  isConfidential  Boolean      @default(false)
+  // Custom metadata as JSON
+  metadata        Json         @default("{}")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  practiceArea    PracticeArea?      @relation(fields: [practiceAreaId], references: [id])
+  clients         MatterClient[]
+  assignments     MatterAssignment[]
+  documents       Document[]
+  notes           MatterNote[]
+  kanbanCards     KanbanCard[]
+  messages        Message[]
+  auditLogs       AuditLog[]
+
+  @@unique([tenantId, matterNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("matters")
+}
+
+model MatterClient {
+  id         String   @id @default(cuid())
+  matterId   String
+  clientId   String
+  isPrimary  Boolean  @default(false)
+  role       String?  // e.g., "Plaintiff", "Defendant", "Witness"
+  createdAt  DateTime @default(now())
+
+  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([matterId, clientId])
+  @@map("matter_clients")
+}
+
+model MatterAssignment {
+  id         String   @id @default(cuid())
+  matterId   String
+  userId     String
+  role       String?  // e.g., "Lead Attorney", "Paralegal"
+  isLead     Boolean  @default(false)
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matterId, userId])
+  @@map("matter_assignments")
+}
+
+model MatterNote {
+  id         String   @id @default(cuid())
+  matterId   String
+  authorId   String
+  // Encrypted content
+  encContent String
+  isInternal Boolean  @default(true) // internal = not visible to client
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+
+  @@index([matterId])
+  @@map("matter_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Documents (Secure Repository)
+// ---------------------------------------------------------------------------
+
+model Document {
+  id               String           @id @default(cuid())
+  tenantId         String
+  matterId         String?
+  clientId         String?
+  uploadedById     String
+  // File metadata
+  fileName         String           // original filename
+  displayName      String           // user-friendly name
+  mimeType         String
+  sizeBytes        BigInt
+  category         DocumentCategory @default(OTHER)
+  description      String?
+  tags             String[]         @default([])
+  // Encrypted storage
+  storagePath      String           // path in storage backend (encrypted filename)
+  encryptionKeyId  String           // which tenant key was used
+  iv               String           // initialization vector (hex)
+  checksum         String           // SHA-256 of plaintext for integrity
+  // Version control
+  version          Int              @default(1)
+  parentDocumentId String?
+  // Access control
+  isConfidential   Boolean          @default(false)
+  allowClientView  Boolean          @default(false)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter           Matter?          @relation(fields: [matterId], references: [id])
+  client           Client?          @relation(fields: [clientId], references: [id])
+  uploadedBy       User             @relation("UploadedBy", fields: [uploadedById], references: [id])
+  parentDocument   Document?        @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  versions         Document[]       @relation("DocumentVersions")
+  auditLogs        AuditLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, matterId])
+  @@index([tenantId, clientId])
+  @@map("documents")
+}
+
+// ---------------------------------------------------------------------------
+// Client Intake
+// ---------------------------------------------------------------------------
+
+model IntakeForm {
+  id            String       @id @default(cuid())
+  tenantId      String
+  clientId      String?
+  status        IntakeStatus @default(DRAFT)
+  // Encrypted form data (JSON encrypted as a single blob)
+  encFormData   String
+  practiceArea  String?
+  assignedTo    String?      // userId
+  reviewedBy    String?      // userId
+  reviewedAt    DateTime?
+  notes         String?
+  submittedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client?      @relation(fields: [clientId], references: [id])
+
+  @@index([tenantId])
+  @@map("intake_forms")
+}
+
+// ---------------------------------------------------------------------------
+// Kanban Board
+// ---------------------------------------------------------------------------
+
+model KanbanBoard {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  columns     KanbanColumn[]
+
+  @@index([tenantId])
+  @@map("kanban_boards")
+}
+
+model KanbanColumn {
+  id          String   @id @default(cuid())
+  boardId     String
+  name        String
+  color       String   @default("#6b7280")
+  position    Int      // sort order
+  wipLimit    Int?     // optional work-in-progress limit
+  isTerminal  Boolean  @default(false) // e.g., "Closed" column
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  board       KanbanBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards       KanbanCard[]
+
+  @@index([boardId, position])
+  @@map("kanban_columns")
+}
+
+model KanbanCard {
+  id          String   @id @default(cuid())
+  columnId    String
+  matterId    String
+  position    Int      // sort order within column
+  // Quick-view fields (denormalized for performance)
+  title       String
+  dueDate     DateTime?
+  priority    Priority @default(MEDIUM)
+  assigneeIds String[] @default([])
+  labels      String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  column      KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  matter      Matter       @relation(fields: [matterId], references: [id], onDelete: Cascade)
+
+  @@unique([matterId, columnId])
+  @@index([columnId, position])
+  @@map("kanban_cards")
+}
+
+// ---------------------------------------------------------------------------
+// Messaging (Client <-> Attorney)
+// ---------------------------------------------------------------------------
+
+model Message {
+  id          String        @id @default(cuid())
+  tenantId    String
+  matterId    String?
+  clientId    String?
+  senderId    String
+  // Recipients stored as array of userIds
+  recipientIds String[]     @default([])
+  subject     String?
+  // Encrypted message body
+  encBody     String
+  status      MessageStatus @default(SENT)
+  isInternal  Boolean       @default(false)
+  parentId    String?       // for threading
+  readAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter      Matter?       @relation(fields: [matterId], references: [id])
+  client      Client?       @relation(fields: [clientId], references: [id])
+  sender      User          @relation("SentBy", fields: [senderId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, clientId])
+  @@map("messages")
+}
+
+// ---------------------------------------------------------------------------
+// Custom Fields (per tenant)
+// ---------------------------------------------------------------------------
+
+model CustomField {
+  id           String @id @default(cuid())
+  tenantId     String
+  entityType   String // "MATTER" | "CLIENT"
+  fieldName    String
+  fieldType    String // "text" | "date" | "select" | "boolean" | "number"
+  isRequired   Boolean @default(false)
+  options      Json    @default("[]") // for select fields
+  position     Int     @default(0)
+
+  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, entityType, fieldName])
+  @@map("custom_fields")
+}
+
+// ---------------------------------------------------------------------------
+// Audit Log (HIPAA requirement — immutable)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  tenantId     String?
+  userId       String?
+  clientId     String?
+  matterId     String?
+  documentId   String?
+  action       AuditAction
+  // What changed (non-sensitive summary)
+  entityType   String?     // "User" | "Client" | "Matter" | "Document" etc.
+  entityId     String?
+  description  String?
+  // Request metadata
+  ipAddress    String?
+  userAgent    String?
+  // Result
+  success      Boolean     @default(true)
+  errorMessage String?
+  // Immutable timestamp (no updatedAt)
+  createdAt    DateTime    @default(now())
+
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
+  user         User?       @relation(fields: [userId], references: [id])
+  client       Client?     @relation(fields: [clientId], references: [id])
+  matter       Matter?     @relation(fields: [matterId], references: [id])
+  document     Document?   @relation(fields: [documentId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

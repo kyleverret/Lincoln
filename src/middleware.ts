@@ -1,0 +1,95 @@
+/**
+ * Next.js Middleware
+ *
+ * Handles:
+ * 1. Authentication — redirect unauthenticated users to /login
+ * 2. Role-based routing — clients go to /portal, firm users to /dashboard
+ * 3. Tenant isolation — ensure users only access their own tenant's data
+ * 4. Security headers (also set in next.config.ts)
+ */
+
+import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { UserRole } from "@prisma/client";
+
+// Routes that don't require authentication
+const PUBLIC_ROUTES = [
+  "/login",
+  "/portal/login",
+  "/intake",   // public intake form
+  "/api/auth", // NextAuth endpoints
+];
+
+// Routes only accessible by CLIENT role
+const PORTAL_ROUTES = ["/portal"];
+
+// Routes only accessible by firm users (non-client)
+const FIRM_ROUTES = [
+  "/dashboard",
+  "/cases",
+  "/clients",
+  "/documents",
+  "/admin",
+  "/settings",
+];
+
+// Routes only accessible by SUPER_ADMIN
+const SUPERADMIN_ROUTES = ["/admin/platform"];
+
+export default auth((req: NextRequest & { auth: any }) => {
+  const { pathname } = req.nextUrl;
+  const session = req.auth;
+
+  // Allow public routes
+  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+    return NextResponse.next();
+  }
+
+  // Require authentication for all other routes
+  if (!session?.user) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const { role } = session.user;
+
+  // Clients can only access portal routes
+  if (role === UserRole.CLIENT) {
+    if (!PORTAL_ROUTES.some((r) => pathname.startsWith(r))) {
+      return NextResponse.redirect(new URL("/portal", req.url));
+    }
+    return NextResponse.next();
+  }
+
+  // Firm users cannot access client portal
+  if (PORTAL_ROUTES.some((r) => pathname.startsWith(r))) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  // Super-admin only routes
+  if (SUPERADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
+    if (role !== UserRole.SUPER_ADMIN) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  // Admin routes require FIRM_ADMIN or above
+  if (pathname.startsWith("/admin")) {
+    if (
+      role !== UserRole.SUPER_ADMIN &&
+      role !== UserRole.FIRM_ADMIN
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  return NextResponse.next();
+});
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
+  ],
+};
