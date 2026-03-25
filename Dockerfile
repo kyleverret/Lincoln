@@ -3,7 +3,7 @@
 # ============================================================
 # Stage 1: Install dependencies
 # ============================================================
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 # Install libc for native modules (bcryptjs, otplib)
 RUN apk add --no-cache libc6-compat
@@ -18,7 +18,7 @@ RUN npm ci --ignore-scripts
 # ============================================================
 # Stage 2: Build the Next.js application
 # ============================================================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN apk add --no-cache libc6-compat
 
@@ -40,7 +40,7 @@ RUN npm run build
 # ============================================================
 # Stage 3: Production runner (minimal image)
 # ============================================================
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 RUN apk add --no-cache libc6-compat
 
