@@ -1,0 +1,176 @@
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { hasPermission } from "@/lib/permissions";
+import { audit } from "@/lib/audit";
+import { z } from "zod";
+import { InvoiceStatus, PaymentMethod } from "@prisma/client";
+
+const updateInvoiceSchema = z.object({
+  status: z.nativeEnum(InvoiceStatus).optional(),
+  notes: z.string().max(2000).optional(),
+  terms: z.string().max(100).optional(),
+});
+
+const recordPaymentSchema = z.object({
+  action: z.literal("record_payment"),
+  amount: z.number().positive(),
+  method: z.nativeEnum(PaymentMethod).default(PaymentMethod.CHECK),
+  reference: z.string().max(200).optional(),
+  paidAt: z.string(),
+  notes: z.string().max(500).optional(),
+});
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!hasPermission(session.user.role, "BILLING_READ")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const invoice = await db.invoice.findFirst({
+    where: { id, tenantId: session.user.tenantId ?? undefined },
+    include: {
+      matter: { select: { id: true, title: true, matterNumber: true, billingType: true } },
+      lineItems: { orderBy: { position: "asc" } },
+      payments: { orderBy: { paidAt: "desc" } },
+    },
+  });
+
+  if (!invoice) return Response.json({ error: "Not found" }, { status: 404 });
+
+  return Response.json(invoice);
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!hasPermission(session.user.role, "BILLING_WRITE")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const invoice = await db.invoice.findFirst({
+    where: { id, tenantId: session.user.tenantId ?? undefined },
+  });
+  if (!invoice) return Response.json({ error: "Not found" }, { status: 404 });
+
+  const body = await req.json();
+
+  // Handle record_payment action
+  if (body.action === "record_payment") {
+    if (!hasPermission(session.user.role, "PAYMENT_RECORD")) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const parsed = recordPaymentSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ error: "Validation failed", details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const { amount, method, reference, paidAt, notes } = parsed.data;
+    const newAmountPaid = Number(invoice.amountPaid) + amount;
+    const newStatus =
+      newAmountPaid >= Number(invoice.totalAmount)
+        ? InvoiceStatus.PAID
+        : InvoiceStatus.PARTIAL;
+
+    const [payment] = await db.$transaction([
+      db.payment.create({
+        data: {
+          tenantId: session.user.tenantId!,
+          invoiceId: id,
+          amount,
+          method,
+          reference: reference || null,
+          paidAt: new Date(paidAt),
+          notes: notes || null,
+          recordedById: session.user.id,
+        },
+      }),
+      db.invoice.update({
+        where: { id },
+        data: { amountPaid: newAmountPaid, status: newStatus },
+      }),
+    ]);
+
+    await audit.writeAuditLog({
+      tenantId: session.user.tenantId ?? undefined,
+      userId: session.user.id,
+      action: "PAYMENT_RECORDED",
+      entityType: "Invoice",
+      entityId: id,
+      description: `Payment of $${amount.toFixed(2)} recorded on invoice ${invoice.invoiceNumber}`,
+    });
+
+    return Response.json(payment);
+  }
+
+  // Standard status/notes update
+  const parsed = updateInvoiceSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: "Validation failed", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const updated = await db.invoice.update({
+    where: { id },
+    data: parsed.data,
+  });
+
+  await audit.writeAuditLog({
+    tenantId: session.user.tenantId ?? undefined,
+    userId: session.user.id,
+    action: "INVOICE_UPDATED",
+    entityType: "Invoice",
+    entityId: id,
+    description: `Invoice ${invoice.invoiceNumber} updated`,
+  });
+
+  return Response.json(updated);
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!hasPermission(session.user.role, "INVOICE_DELETE")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const invoice = await db.invoice.findFirst({
+    where: { id, tenantId: session.user.tenantId ?? undefined },
+  });
+  if (!invoice) return Response.json({ error: "Not found" }, { status: 404 });
+
+  if (invoice.status !== "DRAFT") {
+    return Response.json(
+      { error: "Only DRAFT invoices can be deleted" },
+      { status: 400 }
+    );
+  }
+
+  await db.invoice.delete({ where: { id } });
+
+  await audit.writeAuditLog({
+    tenantId: session.user.tenantId ?? undefined,
+    userId: session.user.id,
+    action: "INVOICE_DELETED",
+    entityType: "Invoice",
+    entityId: id,
+    description: `Invoice ${invoice.invoiceNumber} deleted`,
+  });
+
+  return new Response(null, { status: 204 });
+}

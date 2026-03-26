@@ -58,6 +58,42 @@ enum BillingType {
   PRO_BONO
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIAL
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum LineItemType {
+  TIME
+  EXPENSE
+  FLAT_FEE
+  RETAINER_APPLIED
+  OTHER
+}
+
+enum PaymentMethod {
+  CHECK
+  CREDIT_CARD
+  ACH
+  WIRE
+  CASH
+  OTHER
+}
+
+enum ContactType {
+  OPPOSING_COUNSEL
+  WITNESS
+  EXPERT
+  VENDOR
+  COURT_CONTACT
+  OTHER
+}
+
 enum DocumentCategory {
   PLEADING
   DISCOVERY
@@ -97,6 +133,15 @@ enum AuditAction {
   TENANT_UPDATED
   KANBAN_UPDATED
   PERMISSION_CHANGED
+  INVOICE_CREATED
+  INVOICE_SENT
+  INVOICE_UPDATED
+  INVOICE_DELETED
+  PAYMENT_RECORDED
+  TIME_ENTRY_CREATED
+  TIME_ENTRY_UPDATED
+  CONTACT_CREATED
+  CONTACT_UPDATED
 }
 
 enum MessageStatus {
@@ -151,6 +196,10 @@ model Tenant {
   messages         Message[]
   practiceAreas    PracticeArea[]
   customFields     CustomField[]
+  contacts         Contact[]
+  invoices         Invoice[]
+  timeEntries      TimeEntry[]
+  payments         Payment[]
 
   @@map("tenants")
 }
@@ -321,6 +370,9 @@ model Matter {
   kanbanCards     KanbanCard[]
   messages        Message[]
   auditLogs       AuditLog[]
+  contacts        Contact[]
+  invoices        Invoice[]
+  timeEntries     TimeEntry[]
 
   @@unique([tenantId, matterNumber])
   @@index([tenantId])
@@ -597,4 +649,131 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Contacts (opposing counsel, witnesses, experts, vendors — not clients)
+// ---------------------------------------------------------------------------
+
+model Contact {
+  id         String      @id @default(cuid())
+  tenantId   String
+  matterId   String?     // optional: contact linked to a specific matter
+  type       ContactType @default(OTHER)
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  company    String?
+  title      String?     // e.g., "Senior Partner", "Expert Witness"
+  notes      String?
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter     Matter?     @relation(fields: [matterId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, matterId])
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Billing: Invoices, Line Items, Time Entries, Payments
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id            String        @id @default(cuid())
+  tenantId      String
+  matterId      String
+  clientId      String
+  invoiceNumber String        // unique per tenant, e.g. "INV-2024-0001"
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxRate       Decimal?      @db.Decimal(5, 4)   // e.g., 0.0875 for 8.75%
+  taxAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
+  notes         String?
+  terms         String?       // e.g., "Net 30"
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter        Matter        @relation(fields: [matterId], references: [id])
+  lineItems     InvoiceLineItem[]
+  payments      Payment[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@index([tenantId, matterId])
+  @@index([tenantId, status])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String       @id @default(cuid())
+  invoiceId   String
+  type        LineItemType @default(TIME)
+  description String
+  quantity    Decimal      @db.Decimal(10, 2)
+  unitPrice   Decimal      @db.Decimal(10, 2)
+  amount      Decimal      @db.Decimal(10, 2)  // quantity * unitPrice
+  timeEntryId String?      // optional — links line item back to a time entry
+  date        DateTime?
+  position    Int          @default(0)
+
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  timeEntry   TimeEntry?   @relation(fields: [timeEntryId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  matterId    String
+  userId      String   // attorney/staff who logged the time
+  date        DateTime
+  hours       Decimal  @db.Decimal(5, 2)
+  rate        Decimal  @db.Decimal(10, 2)  // hourly rate at time of entry
+  description String
+  isBillable  Boolean  @default(true)
+  isBilled    Boolean  @default(false)     // true once added to an invoice
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter      Matter          @relation(fields: [matterId], references: [id])
+  lineItems   InvoiceLineItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, matterId])
+  @@index([tenantId, userId])
+  @@map("time_entries")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  tenantId    String
+  invoiceId   String
+  amount      Decimal       @db.Decimal(10, 2)
+  method      PaymentMethod @default(CHECK)
+  reference   String?       // check number, transaction ID, etc.
+  paidAt      DateTime
+  notes       String?
+  recordedById String
+  createdAt   DateTime      @default(now())
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@map("payments")
 }

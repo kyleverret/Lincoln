@@ -62,6 +62,22 @@ export const PERMISSIONS = {
   // Admin views
   ADMIN_DASHBOARD: [UserRole.SUPER_ADMIN],
   FIRM_DASHBOARD: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+
+  // Contacts (opposing counsel, witnesses, experts, etc.)
+  CONTACT_CREATE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
+  CONTACT_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
+  CONTACT_UPDATE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  CONTACT_DELETE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+
+  // Billing
+  BILLING_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  BILLING_WRITE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  INVOICE_CREATE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  INVOICE_SEND: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  INVOICE_DELETE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+  TIMEENTRY_CREATE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
+  TIMEENTRY_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
+  PAYMENT_RECORD: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
 } as const;
 
 type Permission = keyof typeof PERMISSIONS;
