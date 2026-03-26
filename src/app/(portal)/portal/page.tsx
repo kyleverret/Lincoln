@@ -10,6 +10,7 @@ import {
   CheckCircle,
   AlertCircle,
   MessageSquare,
+  Landmark,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/utils";
 import { audit } from "@/lib/audit";
 import { headers } from "next/headers";
+import { TrustTransactionStatus } from "@prisma/client";
 
 export const metadata = { title: "My Portal" };
 
@@ -55,6 +57,30 @@ export default async function PortalDashboardPage() {
 
   if (!client) redirect("/portal/login");
 
+  const matters = client.matters.map((mc) => mc.matter);
+
+  // Compute trust balance per matter (matters with a trust account)
+  const trustBalances: Record<string, number> = {};
+  for (const matter of matters) {
+    if (!matter.trustBankAccountId) continue;
+    const agg = await db.trustTransaction.groupBy({
+      by: ["type"],
+      where: {
+        matterId: matter.id,
+        bankAccountId: matter.trustBankAccountId,
+        status: { in: [TrustTransactionStatus.CLEARED, TrustTransactionStatus.APPROVED] },
+      },
+      _sum: { amount: true },
+    });
+    const credits = agg
+      .filter((r) => r.type === "DEPOSIT" || r.type === "TRANSFER_IN")
+      .reduce((s, r) => s + Number(r._sum.amount ?? 0), 0);
+    const debits = agg
+      .filter((r) => r.type === "WITHDRAWAL" || r.type === "TRANSFER_OUT")
+      .reduce((s, r) => s + Number(r._sum.amount ?? 0), 0);
+    trustBalances[matter.id] = credits - debits;
+  }
+
   // Audit: client accessed portal
   const headersList = await headers();
   await audit.clientAccessed(
@@ -67,13 +93,14 @@ export default async function PortalDashboardPage() {
     client.id
   );
 
-  const matters = client.matters.map((mc) => mc.matter);
   const activeMatters = matters.filter(
     (m) => m.status === "ACTIVE" || m.status === "INTAKE"
   );
   const closedMatters = matters.filter(
     (m) => m.status === "CLOSED" || m.status === "ARCHIVED"
   );
+
+  const mattersWithTrust = matters.filter((m) => m.trustBankAccountId && trustBalances[m.id] !== undefined);
 
   return (
     <div className="space-y-6">
@@ -220,6 +247,45 @@ export default async function PortalDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Trust / Retainer Balances */}
+      {mattersWithTrust.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Landmark className="h-4 w-4" />
+              Retainer Balances
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {mattersWithTrust.map((matter) => {
+                const balance = trustBalances[matter.id] ?? 0;
+                return (
+                  <div
+                    key={matter.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{matter.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {matter.matterNumber}
+                      </p>
+                    </div>
+                    <p
+                      className={`font-semibold tabular-nums text-sm ${
+                        balance < 0 ? "text-red-600" : "text-green-700"
+                      }`}
+                    >
+                      ${balance.toFixed(2)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

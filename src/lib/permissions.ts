@@ -78,6 +78,16 @@ export const PERMISSIONS = {
   TIMEENTRY_CREATE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
   TIMEENTRY_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
   PAYMENT_RECORD: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+
+  // Trust / IOLTA accounting
+  BANK_ACCOUNT_MANAGE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+  TRUST_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  TRUST_WRITE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+  TRUST_TRANSFER_APPROVE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN],
+  BILLING_RULE_MANAGE: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
+
+  // Notifications
+  NOTIFICATION_READ: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF, UserRole.CLIENT],
 } as const;
 
 type Permission = keyof typeof PERMISSIONS;

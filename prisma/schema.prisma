@@ -94,6 +94,41 @@ enum ContactType {
   OTHER
 }
 
+enum BankAccountType {
+  IOLTA        // Client trust account — regulated
+  OPERATING    // Firm operating account
+  OTHER
+}
+
+enum TrustTransactionType {
+  DEPOSIT            // Client funds received
+  WITHDRAWAL         // Disbursement on behalf of client
+  TRANSFER_OUT       // Transfer of earned fees to operating account
+  TRANSFER_IN        // Correction / reversal back to trust
+  ADJUSTMENT         // Manual balance adjustment with explanation
+}
+
+enum TrustTransactionStatus {
+  PENDING_APPROVAL   // Transfer to operating; awaiting attorney sign-off
+  APPROVED           // Approved, ready to clear
+  REJECTED           // Rejected by approver
+  CLEARED            // Posted and reconciled
+}
+
+enum AlertFloorType {
+  STATIC      // Alert when balance < $X
+  PERCENTAGE  // Alert when balance < X% of last replenishment
+}
+
+enum NotificationType {
+  RETAINER_LOW
+  IOLTA_APPROVAL_REQUESTED
+  IOLTA_APPROVED
+  IOLTA_REJECTED
+  ACCOUNT_STALE
+  INVOICE_OVERDUE
+}
+
 enum DocumentCategory {
   PLEADING
   DISCOVERY
@@ -142,6 +177,16 @@ enum AuditAction {
   TIME_ENTRY_UPDATED
   CONTACT_CREATED
   CONTACT_UPDATED
+  BANK_ACCOUNT_CREATED
+  TRUST_DEPOSIT
+  TRUST_WITHDRAWAL
+  TRUST_TRANSFER_REQUESTED
+  TRUST_TRANSFER_APPROVED
+  TRUST_TRANSFER_REJECTED
+  TRUST_RECONCILED
+  BILLING_RULE_SET
+  PLAID_CONNECTED
+  PLAID_DISCONNECTED
 }
 
 enum MessageStatus {
@@ -200,6 +245,10 @@ model Tenant {
   invoices         Invoice[]
   timeEntries      TimeEntry[]
   payments         Payment[]
+  bankAccounts     BankAccount[]
+  trustTransactions TrustTransaction[]
+  billingRules     BillingRule[]
+  notifications    Notification[]
 
   @@map("tenants")
 }
@@ -240,6 +289,7 @@ model User {
   uploadedDocuments     Document[]   @relation("UploadedBy")
   sentMessages          Message[]    @relation("SentBy")
   matterAssignments     MatterAssignment[]
+  notifications         Notification[]
 
   @@map("users")
 }
@@ -344,10 +394,11 @@ model Matter {
   dueDate         DateTime?
   statuteOfLimits DateTime?    // critical deadline
   // Billing
-  billingType     BillingType  @default(HOURLY)
-  hourlyRate      Decimal?     @db.Decimal(10, 2)
-  flatFee         Decimal?     @db.Decimal(10, 2)
-  retainerAmount  Decimal?     @db.Decimal(10, 2)
+  billingType        BillingType  @default(HOURLY)
+  hourlyRate         Decimal?     @db.Decimal(10, 2)
+  flatFee            Decimal?     @db.Decimal(10, 2)
+  retainerAmount     Decimal?     @db.Decimal(10, 2)
+  trustBankAccountId String?      // which IOLTA account holds this matter's funds
   // Court info
   courtName       String?
   caseNumber      String?      // court-assigned case number
@@ -370,9 +421,12 @@ model Matter {
   kanbanCards     KanbanCard[]
   messages        Message[]
   auditLogs       AuditLog[]
-  contacts        Contact[]
-  invoices        Invoice[]
-  timeEntries     TimeEntry[]
+  contacts         Contact[]
+  invoices         Invoice[]
+  timeEntries      TimeEntry[]
+  trustTransactions TrustTransaction[]
+  billingRule      BillingRule?
+  trustBankAccount BankAccount?        @relation("MatterTrustAccount", fields: [trustBankAccountId], references: [id])
 
   @@unique([tenantId, matterNumber])
   @@index([tenantId])
@@ -776,4 +830,113 @@ model Payment {
   @@index([tenantId])
   @@index([invoiceId])
   @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Trust Accounting (IOLTA)
+// ---------------------------------------------------------------------------
+
+model BankAccount {
+  id                  String          @id @default(cuid())
+  tenantId            String
+  name                String          // e.g., "Client Trust — First National"
+  bankName            String?
+  accountType         BankAccountType @default(IOLTA)
+  lastFourDigits      String?
+  isActive            Boolean         @default(true)
+  // Reconciliation
+  lastReconciledAt    DateTime?
+  staleThresholdDays  Int             @default(7)
+  // Plaid integration (access token stored AES-256-GCM encrypted)
+  plaidItemId         String?
+  plaidAccountId      String?
+  encPlaidAccessToken String?
+  plaidLastSyncedAt   DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  tenant              Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions        TrustTransaction[]
+  matters             Matter[]        @relation("MatterTrustAccount")
+
+  @@index([tenantId])
+  @@map("bank_accounts")
+}
+
+model TrustTransaction {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  matterId        String
+  bankAccountId   String
+  type            TrustTransactionType
+  // amount is always positive; type determines whether it increases or decreases the balance
+  amount          Decimal                @db.Decimal(10, 2)
+  description     String
+  date            DateTime
+  referenceNumber String?
+  status          TrustTransactionStatus @default(CLEARED)
+  // Approval workflow (used for TRANSFER_OUT only)
+  requestedById   String
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectedReason  String?
+  // Reconciliation
+  isReconciled    Boolean                @default(false)
+  reconciledAt    DateTime?
+  importBatchId   String?                // groups CSV-imported transactions
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter          Matter                 @relation(fields: [matterId], references: [id])
+  bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, matterId])
+  @@index([tenantId, status])
+  @@index([bankAccountId, date])
+  @@map("trust_transactions")
+}
+
+// Per-matter retainer alert configuration
+model BillingRule {
+  id             String        @id @default(cuid())
+  tenantId       String
+  matterId       String        @unique  // one rule per matter
+  floorType      AlertFloorType @default(STATIC)
+  floorAmount    Decimal?      @db.Decimal(10, 2)    // used when floorType = STATIC
+  floorPercent   Decimal?      @db.Decimal(5, 4)     // used when floorType = PERCENTAGE (0.25 = 25%)
+  notifyLeadOnly Boolean       @default(false)       // false = notify all assigned
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter         Matter        @relation(fields: [matterId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("billing_rules")
+}
+
+// In-app notification store
+model Notification {
+  id         String           @id @default(cuid())
+  tenantId   String
+  userId     String           // recipient
+  type       NotificationType
+  title      String
+  body       String
+  entityType String?          // e.g., "TrustTransaction", "BankAccount", "Invoice"
+  entityId   String?
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

@@ -23,6 +23,7 @@ import { UserRole } from "@prisma/client";
 import { signOut } from "next-auth/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
+import { NotificationBell } from "./NotificationBell";
 
 interface NavItem {
   href: string;
@@ -196,6 +197,9 @@ export function Sidebar({ user, firmName }: SidebarProps) {
 
       {/* User footer */}
       <div className="border-t p-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <NotificationBell />
+        </div>
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">

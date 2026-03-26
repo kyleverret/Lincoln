@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { isAccountStale } from "@/lib/trust/balance";
 import { z } from "zod";
 import { InvoiceStatus, PaymentMethod } from "@prisma/client";
 
@@ -118,6 +119,26 @@ export async function PATCH(
   const parsed = updateInvoiceSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: "Validation failed", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Stale data lock: block DRAFT→SENT if matter's trust account is unreconciled past threshold
+  if (parsed.data.status === InvoiceStatus.SENT && invoice.status === InvoiceStatus.DRAFT) {
+    const matter = await db.matter.findFirst({
+      where: { id: invoice.matterId },
+      select: { trustBankAccountId: true },
+    });
+    if (matter?.trustBankAccountId) {
+      const trustAccount = await db.bankAccount.findFirst({
+        where: { id: matter.trustBankAccountId, tenantId: session.user.tenantId ?? undefined },
+        select: { lastReconciledAt: true, staleThresholdDays: true },
+      });
+      if (trustAccount && isAccountStale(trustAccount.lastReconciledAt, trustAccount.staleThresholdDays ?? 7)) {
+        return Response.json(
+          { error: "Cannot send invoice: the matter's trust account has not been reconciled within the required period." },
+          { status: 422 }
+        );
+      }
+    }
   }
 
   const updated = await db.invoice.update({
