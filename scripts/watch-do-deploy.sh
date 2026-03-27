@@ -1,6 +1,6 @@
 #!/bin/bash
-# Watch a DigitalOcean App Platform deployment and return logs when done.
-# Run this after pushing to main. Claude will read the output and fix issues.
+# Watch a DigitalOcean App Platform deployment.
+# On failure, saves logs and invokes Claude Code to diagnose and fix automatically.
 #
 # Requirements: curl, jq  (brew install jq  /  apt install jq)
 #
@@ -18,6 +18,12 @@ set -euo pipefail
 
 API="https://api.digitalocean.com/v2"
 AUTH=(-H "Authorization: Bearer $DO_TOKEN" -H "Content-Type: application/json")
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_DIR="$REPO_ROOT/.do-logs"
+LOG_FILE="$LOG_DIR/latest.log"
+
+mkdir -p "$LOG_DIR"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,9 +47,14 @@ fetch_logs() {
   fi
 }
 
+log() { echo "$*" | tee -a "$LOG_FILE"; }
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
-echo "⏳  Waiting 60s for DigitalOcean to pick up the push..."
+# Clear previous log
+> "$LOG_FILE"
+
+echo "Waiting 60s for DigitalOcean to pick up the push..."
 sleep 60
 
 DEPLOYMENT=$(latest_deployment)
@@ -51,8 +62,7 @@ DEP_ID=$(echo "$DEPLOYMENT" | jq -r '.id')
 DEP_CAUSE=$(echo "$DEPLOYMENT" | jq -r '.cause // "push"')
 DEP_SHA=$(echo "$DEPLOYMENT" | jq -r '.git.commit_sha // "unknown"' | cut -c1-7)
 
-echo "🔍  Tracking deployment $DEP_ID  (cause: $DEP_CAUSE, sha: $DEP_SHA)"
-echo ""
+echo "Tracking deployment $DEP_ID  (cause: $DEP_CAUSE, sha: $DEP_SHA)"
 
 PHASE=""
 PREV_PHASE=""
@@ -63,14 +73,14 @@ while true; do
   PHASE=$(deployment_phase "$DEP_ID")
 
   if [[ "$PHASE" != "$PREV_PHASE" ]]; then
-    echo "   Phase → $PHASE"
+    echo "   Phase -> $PHASE"
     PREV_PHASE="$PHASE"
   fi
 
   case "$PHASE" in
     ACTIVE|SUPERSEDED)
       echo ""
-      echo "✅  Deployment SUCCEEDED (phase: $PHASE)"
+      echo "Deployment SUCCEEDED (phase: $PHASE)"
       exit 0
       ;;
     ERROR|CANCELED|UNKNOWN)
@@ -80,7 +90,7 @@ while true; do
 
   if (( SECONDS_WAITED >= MAX_WAIT )); then
     echo ""
-    echo "⚠️  Timed out after ${MAX_WAIT}s. Last phase: $PHASE"
+    echo "Timed out after ${MAX_WAIT}s. Last phase: $PHASE"
     break
   fi
 
@@ -88,25 +98,36 @@ while true; do
   (( SECONDS_WAITED += 15 ))
 done
 
-# ── failure path: dump logs ───────────────────────────────────────────────────
+# ── failure: write logs to file, invoke Claude ────────────────────────────────
+
+{
+  echo "DEPLOYMENT FAILED (phase: $PHASE)"
+  echo "App ID: $APP_ID  |  Deployment: $DEP_ID  |  SHA: $DEP_SHA"
+  echo ""
+  echo "=== BUILD LOGS ==="
+  fetch_logs "$DEP_ID" "BUILD"
+  echo ""
+  echo "=== DEPLOY LOGS ==="
+  fetch_logs "$DEP_ID" "DEPLOY"
+  echo ""
+  echo "=== RUN LOGS ==="
+  fetch_logs "$DEP_ID" "RUN"
+} > "$LOG_FILE"
 
 echo ""
-echo "❌  Deployment FAILED (phase: $PHASE)"
+echo "Deployment FAILED. Logs saved to $LOG_FILE"
+echo "Invoking Claude to diagnose and fix..."
 echo ""
-echo "════════════════════════════════════════════════════════════"
-echo "  BUILD LOGS"
-echo "════════════════════════════════════════════════════════════"
-fetch_logs "$DEP_ID" "BUILD"
 
-echo ""
-echo "════════════════════════════════════════════════════════════"
-echo "  DEPLOY / RUN LOGS"
-echo "════════════════════════════════════════════════════════════"
-fetch_logs "$DEP_ID" "DEPLOY"
-fetch_logs "$DEP_ID" "RUN"
+claude --print "
+The DigitalOcean App Platform deployment for the Lincoln project just failed.
+The full logs are at: $LOG_FILE
 
-echo ""
-echo "════════════════════════════════════════════════════════════"
-echo "  END OF LOGS — review above and fix"
-echo "════════════════════════════════════════════════════════════"
-exit 1
+Please:
+1. Read the log file to identify the error
+2. Review the relevant source files
+3. Fix the issue
+4. Commit and push to main (branch: main)
+
+Do not ask for confirmation — work through it and push when done.
+"
