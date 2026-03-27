@@ -78,6 +78,7 @@ infrastructure/
 docker/
   entrypoint.sh      # Runs `prisma db push` then starts server
 
+.mcp.json            # Gitignored; DO MCP server config (uses $DO_TOKEN from env)
 .local/              # Gitignored local dev scripts (not committed)
   watch-do-deploy.sh # Polls DO API after push; invokes Claude on failure
 .do-logs/            # Gitignored; DO deploy log output from watch script
@@ -286,7 +287,15 @@ Client portal login uses client email + password set during intake.
 ```
 
 **MCP Integration:**
-The DigitalOcean MCP server (`digitalocean-labs/mcp-digitalocean`) is configured in Claude Code. In sessions where it is loaded, Claude can read deployment logs and app status directly without needing log pastes.
+DigitalOcean remote MCP servers (Apps + Databases) are configured in `.mcp.json` at the project root. They authenticate via the `DO_TOKEN` environment variable (set in `~/.zshrc`). When loaded, Claude can query app deployments, logs, database clusters, and connection details directly.
+
+```
+# .mcp.json server endpoints
+Apps:      https://apps.mcp.digitalocean.com/mcp
+Databases: https://databases.mcp.digitalocean.com/mcp
+```
+
+> **Note:** `.mcp.json` is gitignored. The `DO_TOKEN` env var must be set locally for MCP auth to work. Restart Claude Code after changes.
 
 ---
 
@@ -303,9 +312,11 @@ The DigitalOcean MCP server (`digitalocean-labs/mcp-digitalocean`) is configured
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| DO App Platform | Active | App ID `277709bf-447d-41a7-8d06-544c9faba45e` |
-| DO Dev Database | In use (temporary) | Has PG15 permission restrictions; replace with Managed PostgreSQL cluster |
-| Managed PostgreSQL | Pending creation | PostgreSQL 16, needed for proper DDL permissions and production use |
+| DO App Platform | Active | App ID `277709bf-447d-41a7-8d06-544c9faba45e`, on Lincoln-1-VPC |
+| DO Managed PostgreSQL | Provisioned | On Lincoln-1-VPC (`10.116.0.0/20`); use private hostname for `DATABASE_URL` |
+| DO Dev Database | Deprecated | Had PG15 permission restrictions; replaced by Managed PostgreSQL cluster |
 | DO Spaces | Not yet configured | Needed for document storage; currently using local storage |
+| VPC | Active | Lincoln-1-VPC — `10.116.0.0/20`; app and database share this network |
 | Custom domain | Pending | `lincoln.verrettech.com` — CNAME to be added in Squarespace DNS |
+| MCP Servers | Configured | Remote DO MCP (Apps + Databases) in `.mcp.json`; requires `DO_TOKEN` env var |
 | AWS/Terraform | Legacy/unused | Do not deploy; kept for reference only |

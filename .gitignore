@@ -1,5 +1,8 @@
 # Dependencies
 /node_modules
+
+# MCP config
+.mcp.json
 /.pnp
 .pnp.js
 .yarn/install-state.gz
