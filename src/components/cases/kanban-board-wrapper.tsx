@@ -32,7 +32,52 @@ export function KanbanBoardWrapper({
       throw new Error("Failed to move card");
     }
 
-    // Refresh server data in background
+    router.refresh();
+  };
+
+  const handleColumnCreate = async (name: string, color: string) => {
+    const response = await fetch("/api/kanban/columns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color, boardId }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || "Failed to create column");
+    }
+
+    router.refresh();
+  };
+
+  const handleColumnUpdate = async (
+    columnId: string,
+    data: { name?: string; color?: string; wipLimit?: number | null }
+  ) => {
+    const response = await fetch(`/api/kanban/columns/${columnId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const resData = await response.json();
+      throw new Error(resData.message || "Failed to update column");
+    }
+
+    router.refresh();
+  };
+
+  const handleColumnDelete = async (columnId: string) => {
+    const response = await fetch(`/api/kanban/columns/${columnId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || "Failed to delete column");
+    }
+
     router.refresh();
   };
 
@@ -41,6 +86,9 @@ export function KanbanBoardWrapper({
       columns={columns}
       canManage={canManage}
       onCardMove={handleCardMove}
+      onColumnCreate={handleColumnCreate}
+      onColumnUpdate={handleColumnUpdate}
+      onColumnDelete={handleColumnDelete}
     />
   );
 }

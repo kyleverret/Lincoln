@@ -2,11 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { Button } from "@/components/ui/button";
-import { KanbanBoard } from "@/components/cases/kanban-board";
 import { UserRole } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
-import { Plus } from "lucide-react";
 import type { KanbanColumnData } from "@/components/cases/kanban-board";
 import { KanbanBoardWrapper } from "@/components/cases/kanban-board-wrapper";
 
@@ -138,14 +135,6 @@ export default async function BoardPage() {
       <Header
         title="Case Board"
         role={role}
-        actions={
-          canManage ? (
-            <Button size="sm" variant="outline">
-              <Plus className="h-4 w-4" />
-              Add Column
-            </Button>
-          ) : undefined
-        }
       />
       <div className="flex-1 overflow-hidden p-6">
         <KanbanBoardWrapper
