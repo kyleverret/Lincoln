@@ -28,6 +28,7 @@ const TYPE_ICONS: Record<TrustTransactionType, React.ElementType> = {
   WITHDRAWAL: ArrowUpCircle,
   TRANSFER_IN: ArrowRightLeft,
   TRANSFER_OUT: ArrowRightLeft,
+  ADJUSTMENT: ArrowRightLeft,
 };
 
 const STATUS_COLORS: Record<TrustTransactionStatus, string> = {
