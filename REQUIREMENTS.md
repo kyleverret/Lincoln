@@ -1,7 +1,7 @@
 # Lincoln — Product Requirements Document
 
-**Version:** 1.0
-**Last Updated:** 2026-03-25
+**Version:** 1.1
+**Last Updated:** 2026-03-27
 **Status:** Active Development
 
 ---
@@ -21,7 +21,6 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 
 - Mobile native applications (responsive web only)
 - E-signature integration
-- Billing and time-tracking
 - Court filing integrations
 - Third-party calendar sync (Google, Outlook)
 
@@ -168,7 +167,44 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | CP-07 | Clients cannot see other clients, firm financial data, internal notes, or unshared documents |
 | CP-08 | Portal session expires after 8 hours of inactivity |
 
-### 3.10 Audit Logging
+### 3.10 Billing and Time Tracking
+
+| ID | Requirement |
+|----|-------------|
+| BL-01 | Attorneys and staff can log time entries against a matter (duration, rate, description) |
+| BL-02 | Firm admins can create invoices from time entries |
+| BL-03 | Invoices move through a workflow: DRAFT → SENT → PAID / VOID |
+| BL-04 | Invoices cannot be sent if the matter's trust account has a stale reconciliation (past `staleThresholdDays`) |
+| BL-05 | Billing rules define default hourly rates per role or matter type |
+| BL-06 | Clients can view sent invoices in the client portal |
+
+### 3.11 Trust Accounting (IOLTA)
+
+| ID | Requirement |
+|----|-------------|
+| TR-01 | Each matter can be linked to an IOLTA trust bank account |
+| TR-02 | Bank accounts track: name, type, bank name, last four digits, stale threshold days, last reconciled date |
+| TR-03 | Trust transactions support types: DEPOSIT, WITHDRAWAL, TRANSFER_IN, TRANSFER_OUT, ADJUSTMENT |
+| TR-04 | TRANSFER_OUT transactions require PENDING_APPROVAL status before funds can move; another authorized user must approve or reject |
+| TR-05 | Approvals and rejections are recorded with the approving user ID and timestamp |
+| TR-06 | Account reconciliation can be triggered manually; sets `lastReconciledAt` and releases the stale lock |
+| TR-07 | Bank statements can be imported via CSV to create transactions in bulk |
+| TR-08 | Plaid integration allows linking real bank accounts for automatic transaction sync |
+| TR-09 | Trust account balances are visible to clients in the portal (per matter) |
+| TR-10 | Retainer balance alerts notify attorneys when trust balance falls below a configurable threshold |
+| TR-11 | All trust transactions are audited; stale account state blocks invoice sending (see BL-04) |
+
+### 3.12 In-App Notifications
+
+| ID | Requirement |
+|----|-------------|
+| NO-01 | Users receive in-app notifications for: new messages, trust approval requests, retainer alerts, stale reconciliation warnings |
+| NO-02 | Notification bell in the sidebar shows unread count badge |
+| NO-03 | Clicking a notification marks it read; "mark all read" available |
+| NO-04 | Notifications poll every 60 seconds |
+| NO-05 | Notifications are tenant-scoped and user-scoped |
+
+### 3.13 Audit Logging
 
 | ID | Requirement |
 |----|-------------|
@@ -188,32 +224,29 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 
 | ID | Requirement |
 |----|-------------|
-| SE-01 | All data in transit uses TLS 1.2 or higher (enforced at ALB; HTTP redirects to HTTPS) |
+| SE-01 | All data in transit uses TLS 1.2 or higher (enforced at DO App Platform load balancer) |
 | SE-02 | All PHI stored in the database is encrypted at the application layer with AES-256-GCM |
 | SE-03 | Document files are encrypted before writing to storage (encrypt-then-store) |
 | SE-04 | Encryption keys are derived per-tenant via HKDF (SHA-256) from a master key |
-| SE-05 | The master encryption key is stored in AWS Secrets Manager; never hardcoded or logged |
+| SE-05 | The master encryption key is stored in DO App Platform environment secrets; never hardcoded or logged |
 | SE-06 | PostgreSQL Row-Level Security policies enforce tenant isolation as a defense-in-depth layer |
 | SE-07 | JWT session tokens are short-lived (8hr) and signed with a strong secret |
 | SE-08 | TOTP MFA is available for all user accounts; firm admins can require MFA for their tenant |
 | SE-09 | Passwords are hashed with bcrypt (cost factor 12) |
 | SE-10 | Account lockout activates after N consecutive failed login attempts |
-| SE-11 | WAF rules block SQL injection, XSS, known bad inputs, and abusive IPs |
-| SE-12 | Authentication endpoint is rate-limited (50 requests / 5 min / IP) |
-| SE-13 | Container images are scanned for vulnerabilities (Trivy) on every CI run |
-| SE-14 | Secret scanning (Gitleaks) runs on every CI run |
-| SE-15 | No plaintext secrets in application code, environment, logs, or container images |
-| SE-16 | ECS tasks run in private subnets with no public IP |
-| SE-17 | RDS is in private DB subnets with no public accessibility |
-| SE-18 | AWS KMS keys rotate automatically on an annual schedule |
+| SE-11 | Authentication endpoint is rate-limited (50 requests / 5 min / IP) |
+| SE-12 | Container images are scanned for vulnerabilities (Trivy) on every CI run |
+| SE-13 | Secret scanning (Gitleaks) runs on every CI run |
+| SE-14 | No plaintext secrets in application code, environment, logs, or container images |
+| SE-15 | Managed PostgreSQL database is not publicly accessible; only reachable from App Platform VPC |
 
 ### 4.2 HIPAA Compliance
 
 | ID | Requirement |
 |----|-------------|
-| HC-01 | AWS HIPAA BAA must be signed before any PHI is stored |
+| HC-01 | DigitalOcean HIPAA BAA must be signed before any PHI is stored (available on Business/Enterprise plans) |
 | HC-02 | All covered workforce members must complete HIPAA training before accessing PHI |
-| HC-03 | Business Associate Agreements required with all sub-processors |
+| HC-03 | Business Associate Agreements required with all sub-processors (DO, Plaid, etc.) |
 | HC-04 | Access to PHI is logged and reviewable (satisfies §164.312(b)) |
 | HC-05 | Encryption at rest for all PHI (satisfies §164.312(a)(2)(iv)) |
 | HC-06 | Automatic session timeout (satisfies §164.312(a)(2)(iii)) |
@@ -248,12 +281,12 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | ID | Requirement |
 |----|-------------|
 | AV-01 | Target uptime: 99.9% (excluding planned maintenance) |
-| AV-02 | RDS deployed Multi-AZ for automatic failover |
-| AV-03 | ECS service minimum 2 tasks; rolling deployments maintain 50% minimum healthy |
+| AV-02 | Managed PostgreSQL deployed with standby node for automatic failover (enable before go-live) |
+| AV-03 | App Platform minimum 2 instances; rolling deployments maintain availability |
 | AV-04 | RTO (Recovery Time Objective): ~15 minutes |
-| AV-05 | RPO (Recovery Point Objective): ~5 minutes (RDS transaction log backups) |
+| AV-05 | RPO (Recovery Point Objective): ~1 hour (DO managed DB automated daily backups) |
 | AV-06 | Health check endpoint (`/api/health`) verifies application + DB connectivity |
-| AV-07 | CloudWatch alarms notify on CPU, memory, error rate, and WAF block spikes |
+| AV-07 | DO App Platform alerts notify on deploy failures and health check failures |
 
 ### 4.6 Scalability
 
@@ -326,6 +359,21 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | GET | `/api/audit` | Query audit logs (admin only) |
 | GET/POST | `/api/admin/users` | List / invite users (firm admin+) |
 | POST | `/api/intake/[tenantSlug]` | Public intake form submission |
+| GET/POST | `/api/billing/invoices` | List / create invoices |
+| GET/PATCH | `/api/billing/invoices/[id]` | Get / update invoice (includes DRAFT→SENT stale lock check) |
+| GET/POST | `/api/billing/time-entries` | List / log time entries |
+| GET/POST | `/api/billing/rules` | List / create billing rules |
+| GET/POST | `/api/billing/trust/accounts` | List / create trust bank accounts |
+| GET | `/api/billing/trust/accounts/[id]` | Get account with ledger |
+| POST | `/api/billing/trust/accounts/[id]/reconcile` | Mark account reconciled |
+| POST | `/api/billing/trust/accounts/[id]/import` | Import transactions from CSV |
+| GET/POST | `/api/billing/trust/transactions` | List / create trust transactions |
+| POST | `/api/billing/trust/transactions/[id]/approve` | Approve or reject a pending transfer |
+| POST | `/api/billing/plaid/exchange` | Exchange Plaid public token |
+| POST | `/api/billing/plaid/sync/[accountId]` | Sync transactions from Plaid |
+| GET | `/api/notifications` | List notifications (supports ?unread=true) |
+| PATCH | `/api/notifications/[id]/read` | Mark a notification read |
+| GET/POST | `/api/contacts` | List / create contacts |
 
 All endpoints return `401` if unauthenticated, `403` if the user lacks the required permission, and `404` if the resource does not exist within the user's tenant.
 
@@ -339,13 +387,19 @@ All endpoints return `401` if unauthenticated, `403` if the user lacks the requi
 | `User` | id, email, passwordHash, role, mfaSecret, failedLoginAttempts, lockedUntil |
 | `TenantUser` | userId, tenantId, role, isActive |
 | `Client` | id, tenantId, firstName, lastName, email, phone, encDateOfBirth, encSsnLastFour, encAddress, encNotes |
-| `Matter` | id, tenantId, title, matterNumber, status, practiceAreaId, openDate, closeDate |
+| `Matter` | id, tenantId, title, matterNumber, status, practiceAreaId, openDate, closeDate, trustBankAccountId |
 | `Document` | id, tenantId, matterId, filename, mimeType, storagePath, iv (iv:authTag), checksum, sizeBytes, allowClientView |
 | `KanbanBoard` | id, matterId, tenantId, name |
 | `KanbanColumn` | id, boardId, name, position |
 | `KanbanCard` | id, columnId, title, description, priority, dueDate, position |
 | `Message` | id, matterId, tenantId, senderId, body, readAt |
 | `AuditLog` | id, tenantId, userId, action, resourceType, resourceId, ipAddress, userAgent, createdAt |
+| `BankAccount` | id, tenantId, name, accountType, bankName, lastFourDigits, lastReconciledAt, staleThresholdDays |
+| `TrustTransaction` | id, tenantId, bankAccountId, matterId, type, status, amount, description, requestedById, approvedById, isReconciled |
+| `Invoice` | id, tenantId, matterId, status (DRAFT/SENT/PAID/VOID), totalAmount, dueDate |
+| `TimeEntry` | id, tenantId, matterId, userId, hours, rate, description, date |
+| `BillingRule` | id, tenantId, role, ratePerHour |
+| `Notification` | id, tenantId, userId, type, title, body, readAt, resourceId, resourceType |
 
 ---
 
@@ -353,13 +407,11 @@ All endpoints return `401` if unauthenticated, `403` if the user lacks the requi
 
 | System | Purpose | Notes |
 |--------|---------|-------|
-| AWS Secrets Manager | Runtime secret injection | DB credentials, master encryption key, NextAuth secret |
-| AWS S3 | Document storage in production | SSE-KMS, private, versioned |
-| AWS KMS | Envelope encryption for RDS, S3, CloudWatch, Secrets Manager, app master key | 5 separate keys |
-| AWS CloudWatch | Application and infrastructure logs | 6-year VPC flow log retention |
-| AWS WAF | Edge security | SQLi, XSS, rate limiting, IP reputation |
-| GitHub Actions | CI/CD pipeline | OIDC auth to AWS, Trivy + Gitleaks on every run |
-| ECR | Container image registry | Vulnerability scanning on push |
+| DigitalOcean App Platform | Application hosting | Auto-deploys on push to `main` |
+| DigitalOcean Managed PostgreSQL | Primary database | PostgreSQL 16; pending migration from dev database |
+| DigitalOcean Spaces | Document storage in production | S3-compatible; replaces AWS S3 |
+| Plaid | Bank account linking for trust accounts | OAuth link flow + transaction sync |
+| GitHub | Source control + CI trigger | Push to `main` triggers DO deploy |
 
 ---
 
@@ -368,7 +420,6 @@ All endpoints return `401` if unauthenticated, `403` if the user lacks the requi
 The following are explicitly out of scope for the initial release:
 
 - E-signature (DocuSign, Adobe Sign)
-- Legal billing and time-tracking (Clio, MyCase integration)
 - Court filing or docketing integration
 - Mobile native apps (iOS, Android)
 - Calendar sync (Google Calendar, Outlook)

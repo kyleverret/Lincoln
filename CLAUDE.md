@@ -8,6 +8,8 @@ This file gives Claude Code the project-specific context needed to work safely a
 
 **Lincoln** is a multi-tenant law firm case management platform built with Next.js 15, Prisma, and PostgreSQL. It is designed to HIPAA standards and supports multiple independent law firms (tenants), their staff, attorneys, and their clients.
 
+**Target scale:** ~20 attorneys, ~500 clients, multiple matters per client.
+
 ---
 
 ## Architecture Quick Reference
@@ -20,10 +22,20 @@ This file gives Claude Code the project-specific context needed to work safely a
 | ORM | Prisma 5 + PostgreSQL 16 |
 | Auth | NextAuth v5 (JWT, 8hr sessions, TOTP MFA) |
 | Encryption | AES-256-GCM, HKDF per-tenant key derivation |
-| Storage | Local (`/storage`) in dev; S3 + SSE-KMS in production |
-| Infrastructure | AWS ECS Fargate, RDS PostgreSQL, S3, ALB, WAF, KMS |
-| IaC | Terraform (S3 remote state, DynamoDB locking) |
-| CI/CD | GitHub Actions with OIDC (no long-lived AWS keys) |
+| Storage | Local (`/storage`) in dev; DigitalOcean Spaces (S3-compatible) in production |
+| Infrastructure | DigitalOcean App Platform + Managed PostgreSQL 16 |
+| CI/CD | Push to `main` triggers auto-deploy on DO App Platform |
+
+> **Note:** The AWS/Terraform/ECS infrastructure in `infrastructure/terraform/` is legacy scaffolding from an earlier architecture decision. The active deployment target is DigitalOcean. Do not reference AWS resources when making deployment decisions.
+
+### Branch Strategy
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Production — every push triggers a DO App Platform deploy |
+| `claude/law-firm-case-management-QO590` | Feature development branch |
+
+Always develop on the feature branch. Merge to `main` only when ready to deploy.
 
 ### Directory Layout
 
@@ -31,7 +43,7 @@ This file gives Claude Code the project-specific context needed to work safely a
 src/
   app/
     (auth)/          # Login pages (firm + portal)
-    (dashboard)/     # Firm-facing UI: matters, clients, kanban, admin
+    (dashboard)/     # Firm-facing UI: matters, clients, kanban, admin, billing
     (portal)/        # Client-facing portal
     api/             # Route handlers (all protected by auth middleware)
   components/
@@ -39,29 +51,36 @@ src/
     cases/           # KanbanBoard, MatterList
     clients/         # ClientCard, IntakeForm
     documents/       # DocumentUploader, DocumentViewer
-    layout/          # Sidebar, TopBar
+    layout/          # Sidebar, TopBar, NotificationBell
     ui/              # shadcn/ui re-exports
   lib/
     auth.ts          # NextAuth config, account lockout, MFA
-    audit.ts         # Immutable audit log writer
+    audit.ts         # Immutable audit log writer (use writeAuditLog() directly — NOT audit.writeAuditLog())
     db.ts            # Prisma client singleton
     encryption.ts    # AES-256-GCM + HKDF helpers
-    permissions.ts   # RBAC permission map
+    permissions.ts   # RBAC permission map + ROLE_LABELS
     storage.ts       # Document encrypt-then-store abstraction
     utils.ts         # cn(), date helpers
     validations/     # Zod schemas shared between client and server
+    trust/           # IOLTA trust accounting helpers (notifications.ts)
 
 prisma/
-  schema.prisma      # 14 models; sensitive fields prefixed `enc`
+  schema.prisma      # 20+ models; sensitive fields prefixed `enc`
   rls.sql            # PostgreSQL Row-Level Security policies
   seed.ts            # Demo data (Smith & Associates + 5 users)
+  migrations/        # Empty — using db push for initial deployment
 
 infrastructure/
-  terraform/         # Full AWS stack (VPC, ECS, RDS, KMS, WAF, IAM)
-  DEPLOYMENT.md      # Step-by-step deployment runbook
+  terraform/         # Legacy AWS stack — NOT the active deployment target
+  DEPLOYMENT.md      # Legacy AWS deployment runbook
+  DEPLOYMENT-DO.md   # Active: DigitalOcean deployment runbook
 
 docker/
-  entrypoint.sh      # Runs `prisma migrate deploy` then starts server
+  entrypoint.sh      # Runs `prisma db push` then starts server
+
+.local/              # Gitignored local dev scripts (not committed)
+  watch-do-deploy.sh # Polls DO API after push; invokes Claude on failure
+.do-logs/            # Gitignored; DO deploy log output from watch script
 ```
 
 ---
@@ -72,9 +91,9 @@ docker/
 
 2. **Encrypt all PHI fields before storing**. Fields prefixed `enc` in the schema (`encDateOfBirth`, `encSsnLastFour`, `encAddress`, `encNotes`) must go through `encryptField()` on write and `decryptField()` on read. Never store plaintext PHI.
 
-3. **Audit every PHI/PII access**. All reads of client records, matter details, and document downloads must call an `audit.*` method from `src/lib/audit.ts`. Writes (uploads, status changes) must also be audited.
+3. **Audit every PHI/PII access**. All reads of client records, matter details, and document downloads must call `writeAuditLog()` from `src/lib/audit.ts`. Writes (uploads, status changes) must also be audited.
 
-4. **Never expose the master encryption key**. `MASTER_ENCRYPTION_KEY` derives all tenant keys via HKDF. It lives only in AWS Secrets Manager and is never logged or returned in API responses.
+4. **Never expose the master encryption key**. `MASTER_ENCRYPTION_KEY` derives all tenant keys via HKDF. It lives only in environment secrets and is never logged or returned in API responses.
 
 5. **Validate tenant ownership before resource operations**. Before returning or mutating any record (matter, document, client, user), confirm `record.tenantId === session.user.tenantId`.
 
@@ -83,6 +102,8 @@ docker/
 7. **Documents: store IV + AuthTag together**. The `iv` column in the `Document` model stores `"<iv_hex>:<authTag_hex>"`. Always split on `:` to extract both values on read.
 
 8. **No plaintext secrets in code or logs**. Never `console.log` a secret, key, or password. Never hardcode credentials.
+
+9. **Trust accounting (IOLTA)**: TRANSFER_OUT transactions require PENDING_APPROVAL workflow. Never allow direct withdrawals without approval. Stale reconciliation locks block invoice sending.
 
 ---
 
@@ -94,7 +115,7 @@ docker/
 | `FIRM_ADMIN` | Full access within their tenant; manage users/matters |
 | `ATTORNEY` | Assigned matters; full matter + client + document access |
 | `STAFF` | Assigned matters; limited admin actions |
-| `CLIENT` | Portal only; own matters, own documents (where `allowClientView=true`), messaging |
+| `CLIENT` | Portal only; own matters, own documents (where `allowClientView=true`), messaging, trust balances |
 
 ---
 
@@ -107,7 +128,7 @@ docker/
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";  // NOTE: standalone function, not audit.writeAuditLog()
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -121,7 +142,7 @@ export async function GET(req: Request) {
     where: { tenantId: session.user.tenantId }, // ALWAYS filter by tenant
   });
 
-  await audit.matterAccessed(session.user.id, session.user.tenantId, "list");
+  await writeAuditLog({ userId: session.user.id, tenantId: session.user.tenantId, action: "matter.list" });
 
   return Response.json(data);
 }
@@ -154,19 +175,43 @@ const [iv, authTag] = document.iv.split(":");
 const buffer = await retrieveDocument(document.storagePath, iv, authTag, keyId);
 ```
 
+### ROLE_LABELS Import
+
+```typescript
+// ROLE_LABELS lives in permissions.ts, not utils.ts
+import { ROLE_LABELS, hasPermission } from "@/lib/permissions";
+```
+
+---
+
+## Known Gotchas (save debugging time)
+
+- **`writeAuditLog`** is a standalone export from `src/lib/audit.ts`. There is no `audit.writeAuditLog()` method.
+- **`ROLE_LABELS`** is exported from `src/lib/permissions.ts`, not `src/lib/utils.ts`.
+- **Lucide icons** do not accept a `title` prop — use `aria-label` instead.
+- **`PrismaAdapter`** must be cast `as any` due to `@auth/core` version conflict between `next-auth` and `@auth/prisma-adapter`.
+- **`crypto.hkdfSync`** returns `ArrayBuffer` — wrap with `Buffer.from(...)` before use.
+- **`next/font/google`** requires network access at build time — removed in favor of Tailwind's `font-sans` (system font).
+- **DO App Platform dev database** has severely restricted PostgreSQL permissions. Do not use it for production. Use a standalone Managed PostgreSQL cluster.
+- **`TrustTransactionStatus`** enum values: `CLEARED`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`. There is no `VOIDED`.
+- **`BankAccount`** field is `lastFourDigits`, not `accountNumberLast4`. There is no `routingNumber` field.
+
 ---
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (SSL required in prod) |
+| `DATABASE_URL` | PostgreSQL connection string with `?sslmode=require` in production |
 | `NEXTAUTH_SECRET` | NextAuth JWT signing secret (min 32 chars) |
-| `NEXTAUTH_URL` | Full app URL (e.g., `https://app.yourfirm.com`) |
+| `NEXTAUTH_URL` | Full app URL (e.g., `https://lincoln.verrettech.com`) |
 | `MASTER_ENCRYPTION_KEY` | 64-char hex (32 bytes) for HKDF key derivation |
 | `STORAGE_PROVIDER` | `local` or `s3` |
-| `AWS_S3_BUCKET` | S3 bucket name (when `STORAGE_PROVIDER=s3`) |
-| `AWS_REGION` | AWS region |
+| `STORAGE_ENDPOINT` | `https://nyc3.digitaloceanspaces.com` (DO Spaces) |
+| `AWS_S3_BUCKET` | Spaces bucket name |
+| `AWS_REGION` | Spaces region (e.g. `nyc3`) |
+| `AWS_ACCESS_KEY_ID` | Spaces access key (not your DO account key) |
+| `AWS_SECRET_ACCESS_KEY` | Spaces secret key |
 
 Never commit `.env` or `.env.local`. They are in `.gitignore`.
 
@@ -198,6 +243,8 @@ docker-compose up --build
 
 ## Migrations
 
+> **Current state:** No migration history exists. The app uses `prisma db push` on startup via `docker/entrypoint.sh`. Once a managed PostgreSQL cluster with full DDL permissions is connected, this should be switched to proper `migrate deploy` workflow.
+
 1. Edit `prisma/schema.prisma`
 2. Run `npx prisma migrate dev --name <description>`
 3. Review the generated SQL in `prisma/migrations/`
@@ -222,18 +269,43 @@ Client portal login uses client email + password set during intake.
 
 ---
 
-## CI/CD
+## Deployment
 
-- **CI** (`.github/workflows/ci.yml`): npm audit, TypeScript, ESLint, Prisma validate, Docker build + Trivy scan, Gitleaks secret scan
-- **Deploy** (`.github/workflows/deploy.yml`): OIDC → ECR push → ECS rolling deploy, triggered on push to `main`
-- Images tagged `sha-<short-sha>` and deployed by digest for immutability
+**Active deployment: DigitalOcean App Platform**
+
+- App ID: `277709bf-447d-41a7-8d06-544c9faba45e`
+- Target URL: `https://lincoln.verrettech.com` (CNAME pending)
+- Push to `main` → auto-deploy triggers
+- See `infrastructure/DEPLOYMENT-DO.md` for full runbook
+
+**Deploy monitoring (from local Mac):**
+```bash
+# After pushing to main:
+./.local/watch-do-deploy.sh
+# Requires DO_TOKEN and APP_ID env vars (set in ~/.zshrc)
+```
+
+**MCP Integration:**
+The DigitalOcean MCP server (`digitalocean-labs/mcp-digitalocean`) is configured in Claude Code. In sessions where it is loaded, Claude can read deployment logs and app status directly without needing log pastes.
 
 ---
 
-## Infrastructure
+## CI/CD
 
-Terraform in `infrastructure/terraform/`. See `infrastructure/DEPLOYMENT.md` for the full runbook.
+- Push to `main` triggers DigitalOcean App Platform auto-deploy
+- Docker build uses multi-stage build (deps → builder → runner)
+- `docker/entrypoint.sh` runs `prisma db push` on container start
+- **Pending:** Switch to `prisma migrate deploy` once managed PostgreSQL cluster is connected and migration baseline is created
 
-Key AWS resources: VPC (3 AZs), ECS Fargate (private subnets), RDS PostgreSQL Multi-AZ, S3 (documents), KMS (5 keys), WAF v2, ALB (TLS 1.2+), Secrets Manager, CloudWatch, VPC endpoints.
+---
 
-**Never run `terraform apply` without reviewing `terraform plan` first.**
+## Infrastructure Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| DO App Platform | Active | App ID `277709bf-447d-41a7-8d06-544c9faba45e` |
+| DO Dev Database | In use (temporary) | Has PG15 permission restrictions; replace with Managed PostgreSQL cluster |
+| Managed PostgreSQL | Pending creation | PostgreSQL 16, needed for proper DDL permissions and production use |
+| DO Spaces | Not yet configured | Needed for document storage; currently using local storage |
+| Custom domain | Pending | `lincoln.verrettech.com` — CNAME to be added in Squarespace DNS |
+| AWS/Terraform | Legacy/unused | Do not deploy; kept for reference only |
