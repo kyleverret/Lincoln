@@ -4,7 +4,8 @@
 .pnp.js
 .yarn/install-state.gz
 
-# DigitalOcean deploy logs (written by scripts/watch-do-deploy.sh)
+# Local dev scripts and DigitalOcean deploy logs (not committed)
+/.local/
 /.do-logs/
 
 # Next.js
