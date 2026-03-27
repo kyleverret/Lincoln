@@ -212,9 +212,9 @@ export default async function AdminPage() {
                     <div className="flex items-center gap-3">
                       <div className="hidden sm:flex items-center gap-2">
                         {tu.user.mfaEnabled ? (
-                          <UserCheck className="h-4 w-4 text-green-600" title="MFA enabled" />
+                          <UserCheck className="h-4 w-4 text-green-600" aria-label="MFA enabled" />
                         ) : (
-                          <UserX className="h-4 w-4 text-amber-500" title="MFA not enabled" />
+                          <UserX className="h-4 w-4 text-amber-500" aria-label="MFA not enabled" />
                         )}
                         <span className="text-xs text-muted-foreground">
                           {tu.user.lastLoginAt
