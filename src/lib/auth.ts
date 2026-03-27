@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -16,7 +17,8 @@ const LOCKOUT_DURATION_MINUTES = parseInt(
 );
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(db),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adapter: PrismaAdapter(db) as any,
   session: {
     strategy: "jwt",
     maxAge: parseInt(process.env.SESSION_MAX_AGE ?? "28800", 10), // 8 hours

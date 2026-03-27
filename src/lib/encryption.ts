@@ -38,7 +38,7 @@ export function deriveTenantKey(tenantEncryptionKeyId: string): Buffer {
   const salt = Buffer.from(process.env.ENCRYPTION_SALT ?? "", "hex");
   const info = Buffer.from(`tenant:${tenantEncryptionKeyId}`, "utf8");
 
-  return crypto.hkdfSync("sha256", masterKey, salt, info, KEY_LENGTH);
+  return Buffer.from(crypto.hkdfSync("sha256", masterKey, salt, info, KEY_LENGTH));
 }
 
 /**

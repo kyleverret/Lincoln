@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { checkRetainerAlert, notifyTransferPending } from "@/lib/trust/notifications";
 import { z } from "zod";
 import { TrustTransactionType, TrustTransactionStatus } from "@prisma/client";
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     : type === "WITHDRAWAL" ? "TRUST_WITHDRAWAL"
     : "TRUST_TRANSFER_REQUESTED";
 
-  await audit.writeAuditLog({
+  await writeAuditLog({
     tenantId: session.user.tenantId ?? undefined,
     userId: session.user.id,
     matterId,

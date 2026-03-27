@@ -62,7 +62,6 @@ export async function checkRetainerAlert(
       matter: {
         include: {
           assignments: {
-            where: { isActive: true },
             include: { user: { select: { id: true } } },
           },
         },

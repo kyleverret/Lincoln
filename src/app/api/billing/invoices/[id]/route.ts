@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { isAccountStale } from "@/lib/trust/balance";
 import { z } from "zod";
 import { InvoiceStatus, PaymentMethod } from "@prisma/client";
@@ -103,7 +103,7 @@ export async function PATCH(
       }),
     ]);
 
-    await audit.writeAuditLog({
+    await writeAuditLog({
       tenantId: session.user.tenantId ?? undefined,
       userId: session.user.id,
       action: "PAYMENT_RECORDED",
@@ -146,7 +146,7 @@ export async function PATCH(
     data: parsed.data,
   });
 
-  await audit.writeAuditLog({
+  await writeAuditLog({
     tenantId: session.user.tenantId ?? undefined,
     userId: session.user.id,
     action: "INVOICE_UPDATED",
@@ -184,7 +184,7 @@ export async function DELETE(
 
   await db.invoice.delete({ where: { id } });
 
-  await audit.writeAuditLog({
+  await writeAuditLog({
     tenantId: session.user.tenantId ?? undefined,
     userId: session.user.id,
     action: "INVOICE_DELETED",

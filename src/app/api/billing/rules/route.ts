@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { z } from "zod";
 import { AlertFloorType } from "@prisma/client";
 
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     },
   });
 
-  await audit.writeAuditLog({
+  await writeAuditLog({
     tenantId: session.user.tenantId ?? undefined,
     userId: session.user.id,
     matterId,

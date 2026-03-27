@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { sendNotification } from "@/lib/trust/notifications";
 import { checkRetainerAlert } from "@/lib/trust/notifications";
 import { z } from "zod";
@@ -65,7 +65,7 @@ export async function PATCH(
     // Check retainer alert after balance changes
     await checkRetainerAlert(session.user.tenantId!, txn.matterId, txn.bankAccountId).catch(() => {});
 
-    await audit.writeAuditLog({
+    await writeAuditLog({
       tenantId: session.user.tenantId ?? undefined,
       userId: session.user.id,
       matterId: txn.matterId,
@@ -97,7 +97,7 @@ export async function PATCH(
       entityId: id,
     });
 
-    await audit.writeAuditLog({
+    await writeAuditLog({
       tenantId: session.user.tenantId ?? undefined,
       userId: session.user.id,
       matterId: txn.matterId,

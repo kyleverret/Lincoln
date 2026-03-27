@@ -132,8 +132,8 @@ export default async function TrustAccountPage({
           <div className="flex gap-3 mt-1 text-sm text-muted-foreground">
             <span>{account.accountType}</span>
             {account.bankName && <span>{account.bankName}</span>}
-            {account.accountNumberLast4 && (
-              <span>••••{account.accountNumberLast4}</span>
+            {account.lastFourDigits && (
+              <span>••••{account.lastFourDigits}</span>
             )}
           </div>
         </div>

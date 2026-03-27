@@ -27,8 +27,7 @@ export default function NewBankAccountPage() {
     name: "",
     accountType: "IOLTA" as string,
     bankName: "",
-    accountNumberLast4: "",
-    routingNumber: "",
+    lastFourDigits: "",
     staleThresholdDays: "7",
   });
 
@@ -132,13 +131,13 @@ export default function NewBankAccountPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="accountNumberLast4">Last 4 Digits</Label>
+                <Label htmlFor="lastFourDigits">Last 4 Digits</Label>
                 <Input
-                  id="accountNumberLast4"
-                  value={form.accountNumberLast4}
+                  id="lastFourDigits"
+                  value={form.lastFourDigits}
                   onChange={(e) =>
                     handleChange(
-                      "accountNumberLast4",
+                      "lastFourDigits",
                       e.target.value.replace(/\D/g, "").slice(0, 4)
                     )
                   }
@@ -148,31 +147,20 @@ export default function NewBankAccountPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="routingNumber">Routing Number</Label>
-                <Input
-                  id="routingNumber"
-                  value={form.routingNumber}
-                  onChange={(e) => handleChange("routingNumber", e.target.value)}
-                  placeholder="021000021"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="staleThresholdDays">
-                  Stale Alert Threshold (days)
-                </Label>
-                <Input
-                  id="staleThresholdDays"
-                  type="number"
-                  min="1"
-                  max="90"
-                  value={form.staleThresholdDays}
-                  onChange={(e) =>
-                    handleChange("staleThresholdDays", e.target.value)
-                  }
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="staleThresholdDays">
+                Stale Alert Threshold (days)
+              </Label>
+              <Input
+                id="staleThresholdDays"
+                type="number"
+                min="1"
+                max="90"
+                value={form.staleThresholdDays}
+                onChange={(e) =>
+                  handleChange("staleThresholdDays", e.target.value)
+                }
+              />
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

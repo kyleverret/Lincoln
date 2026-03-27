@@ -14,7 +14,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { checkRetainerAlert } from "@/lib/trust/notifications";
 import { TrustTransactionType, TrustTransactionStatus } from "@prisma/client";
 
@@ -65,7 +65,13 @@ export async function POST(
   const idx = (col: string) => headers.indexOf(col);
 
   const errors: string[] = [];
-  const toCreate: Parameters<typeof db.trustTransaction.createMany>["0"]["data"] = [];
+  const toCreate: {
+    tenantId: string; matterId: string; bankAccountId: string;
+    type: import("@prisma/client").TrustTransactionType;
+    amount: number; description: string; date: Date;
+    referenceNumber: string | null; status: import("@prisma/client").TrustTransactionStatus;
+    requestedById: string; importBatchId: string; isReconciled: boolean;
+  }[] = [];
   const importBatchId = `import-${Date.now()}`;
 
   // Pre-fetch all matters for this tenant for number lookup
@@ -105,6 +111,7 @@ export async function POST(
       status: TrustTransactionStatus.CLEARED,
       requestedById: session.user.id,
       importBatchId,
+      isReconciled: false,
     });
   }
 
@@ -120,7 +127,7 @@ export async function POST(
     await checkRetainerAlert(session.user.tenantId!, matterId, bankAccountId).catch(() => {});
   }
 
-  await audit.writeAuditLog({
+  await writeAuditLog({
     tenantId: session.user.tenantId ?? undefined,
     userId: session.user.id,
     action: "TRUST_DEPOSIT",

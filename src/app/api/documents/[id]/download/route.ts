@@ -91,7 +91,7 @@ export async function GET(
       document.fileName
     );
 
-    return new NextResponse(decrypted, {
+    return new NextResponse(new Uint8Array(decrypted), {
       headers: {
         "Content-Type": document.mimeType,
         "Content-Disposition": `attachment; filename="${encodeURIComponent(document.fileName)}"`,

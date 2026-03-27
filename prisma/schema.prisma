@@ -290,6 +290,8 @@ model User {
   sentMessages          Message[]    @relation("SentBy")
   matterAssignments     MatterAssignment[]
   notifications         Notification[]
+  requestedTrustTxns    TrustTransaction[] @relation("TrustRequestedBy")
+  approvedTrustTxns     TrustTransaction[] @relation("TrustApprovedBy")
 
   @@map("users")
 }
@@ -891,6 +893,8 @@ model TrustTransaction {
   tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   matter          Matter                 @relation(fields: [matterId], references: [id])
   bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id])
+  requestedBy     User                   @relation("TrustRequestedBy", fields: [requestedById], references: [id])
+  approvedBy      User?                  @relation("TrustApprovedBy", fields: [approvedById], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, matterId])

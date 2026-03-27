@@ -13,7 +13,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { decryptField } from "@/lib/encryption";
-import { audit } from "@/lib/audit";
+import { writeAuditLog } from "@/lib/audit";
 import { PlaidApi, PlaidEnvironments, Configuration, RemovedTransaction } from "plaid";
 import { TrustTransactionType, TrustTransactionStatus } from "@prisma/client";
 
@@ -128,7 +128,7 @@ export async function POST(
       data: { plaidLastSyncedAt: new Date() },
     });
 
-    await audit.writeAuditLog({
+    await writeAuditLog({
       tenantId: session.user.tenantId ?? undefined,
       userId: session.user.id,
       action: "TRUST_DEPOSIT",
