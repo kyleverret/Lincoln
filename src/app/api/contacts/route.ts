@@ -105,3 +105,45 @@ export async function POST(req: Request) {
 
   return Response.json(contact, { status: 201 });
 }
+
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!hasPermission(session.user.role, "CONTACT_DELETE")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const contactId = searchParams.get("id");
+
+  if (!contactId) {
+    return Response.json({ error: "Contact ID required" }, { status: 400 });
+  }
+
+  // Verify contact belongs to tenant
+  const contact = await db.contact.findFirst({
+    where: { id: contactId, tenantId: session.user.tenantId ?? undefined },
+  });
+
+  if (!contact) {
+    return Response.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  // Soft delete
+  await db.contact.update({
+    where: { id: contactId },
+    data: { isActive: false },
+  });
+
+  await writeAuditLog({
+    tenantId: session.user.tenantId ?? undefined,
+    userId: session.user.id,
+    action: "CONTACT_DELETED",
+    entityType: "Contact",
+    entityId: contactId,
+    description: `Contact soft-deleted: ${contact.firstName} ${contact.lastName}`,
+  });
+
+  return Response.json({ success: true });
+}

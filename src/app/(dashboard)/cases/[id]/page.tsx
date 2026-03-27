@@ -33,6 +33,7 @@ import { audit } from "@/lib/audit";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { decryptField } from "@/lib/encryption";
+import { AddNoteForm } from "@/components/cases/add-note-form";
 
 export const metadata = { title: "Case Detail" };
 
@@ -422,6 +423,7 @@ export default async function CaseDetailPage({ params }: PageProps) {
                 <CardTitle className="text-base">Case Notes</CardTitle>
               </CardHeader>
               <CardContent>
+                {canEdit && <AddNoteForm matterId={matter.id} />}
                 {matter.notes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
                     No notes yet.

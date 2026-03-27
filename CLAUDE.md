@@ -11,6 +11,44 @@ This file gives Claude Code the project-specific context needed to work safely a
 **Target scale:** ~20 attorneys, ~500 clients, multiple matters per client.
 
 ---
+#### BUGS and IMPROVEMENTS ####
+added by Kyle on 3/27/26
+We’ve got some work to do:
+
+-in the title, update name of the law firm to  “SDLawyers” from Smith & Associates
+We need a firm settings tab, that allows the name of the firm to be edited by firm admins.
+ 
+For case project management:
+- I could not move the cards.
+- I could not add a column
+- I could not delete a column.
+- I could not change column names
+- The Add column button did not do anything 
+
+Action items:
+- I need to be able to add action items.
+
+On the cases list, for each cases card, I need an emoji or a designation like an A or a C to indicate which person is the lawyer and which is the client.
+In case management, I could not add a note to a case
+
+Billing, I could not add a time entry
+
+
+Settings page gave me a 404
+Hitting edit on a staff member gave me a 404
+Intake gave me a 404
+Messages gave me a 404
+In a client matter, hitting edit gave me a 404
+
+Documents gave me this error: Application error: a client-side exception has occurred while loading lincoln.verrettech.com (see the browser console for more information).
+
+The main dashboard does not need to have a documents tile or a total matters.
+=
+
+I need to be able to add or delete a contact once added.
+
+
+
 
 ## Architecture Quick Reference
 

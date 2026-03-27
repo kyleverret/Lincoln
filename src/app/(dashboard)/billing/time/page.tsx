@@ -32,7 +32,7 @@ export default function TimeEntriesPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/billing/time-entries").then((r) => r.json()),
-      fetch("/api/matters").then((r) => r.json()),
+      fetch("/api/cases").then((r) => r.json()),
     ]).then(([e, m]) => {
       setEntries(Array.isArray(e) ? e : []);
       setMatters(Array.isArray(m) ? m : []);

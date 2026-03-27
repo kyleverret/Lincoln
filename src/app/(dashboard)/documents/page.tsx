@@ -227,7 +227,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
                         {doc.client.firstName} {doc.client.lastName}
                       </Link>
                     )}
-                    <span>{formatFileSize(doc.sizeBytes)}</span>
+                    <span>{formatFileSize(Number(doc.sizeBytes))}</span>
                     <span>
                       {doc.uploadedBy.firstName} {doc.uploadedBy.lastName}
                     </span>

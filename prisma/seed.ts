@@ -19,18 +19,18 @@ async function main() {
   // Create tenant (law firm)
   // ---------------------------------------------------------------------------
   const tenant = await db.tenant.upsert({
-    where: { slug: "smith-associates" },
+    where: { slug: "sdlawyers" },
     update: {},
     create: {
-      name: "Smith & Associates Law Firm",
-      slug: "smith-associates",
+      name: "SDLawyers",
+      slug: "sdlawyers",
       plan: "PROFESSIONAL",
       phone: "(555) 123-4567",
       address: "100 Main Street, Suite 500",
       city: "New York",
       state: "NY",
       zipCode: "10001",
-      website: "https://smithlaw.example.com",
+      website: "https://sdlawyers.com",
       barNumber: "NY-12345",
     },
   });
@@ -72,10 +72,10 @@ async function main() {
   // Firm Admin
   // ---------------------------------------------------------------------------
   const firmAdmin = await db.user.upsert({
-    where: { email: "admin@smith-associates.example.com" },
+    where: { email: "sarah@sdlawyers.com" },
     update: {},
     create: {
-      email: "admin@smith-associates.example.com",
+      email: "sarah@sdlawyers.com",
       passwordHash: demoPasswordHash,
       firstName: "Sarah",
       lastName: "Smith",
@@ -99,10 +99,10 @@ async function main() {
   // Attorneys
   // ---------------------------------------------------------------------------
   const attorney1 = await db.user.upsert({
-    where: { email: "jdoe@smith-associates.example.com" },
+    where: { email: "jdoe@sdlawyers.com" },
     update: {},
     create: {
-      email: "jdoe@smith-associates.example.com",
+      email: "jdoe@sdlawyers.com",
       passwordHash: demoPasswordHash,
       firstName: "James",
       lastName: "Doe",
@@ -123,10 +123,10 @@ async function main() {
   });
 
   const attorney2 = await db.user.upsert({
-    where: { email: "mjohnson@smith-associates.example.com" },
+    where: { email: "mjohnson@sdlawyers.com" },
     update: {},
     create: {
-      email: "mjohnson@smith-associates.example.com",
+      email: "mjohnson@sdlawyers.com",
       passwordHash: demoPasswordHash,
       firstName: "Maria",
       lastName: "Johnson",
@@ -150,10 +150,10 @@ async function main() {
   // Staff
   // ---------------------------------------------------------------------------
   const staff = await db.user.upsert({
-    where: { email: "staff@smith-associates.example.com" },
+    where: { email: "staff@sdlawyers.com" },
     update: {},
     create: {
-      email: "staff@smith-associates.example.com",
+      email: "staff@sdlawyers.com",
       passwordHash: demoPasswordHash,
       firstName: "Alex",
       lastName: "Brown",
@@ -490,10 +490,10 @@ async function main() {
   console.log("\n✅ Seed complete!\n");
   console.log("Demo accounts (password: Demo@Password1! for all):");
   console.log(`  Super Admin:  superadmin@lincoln.example.com`);
-  console.log(`  Firm Admin:   admin@smith-associates.example.com`);
-  console.log(`  Attorney 1:   jdoe@smith-associates.example.com`);
-  console.log(`  Attorney 2:   mjohnson@smith-associates.example.com`);
-  console.log(`  Staff:        staff@smith-associates.example.com`);
+  console.log(`  Firm Admin:   sarah@sdlawyers.com`);
+  console.log(`  Attorney 1:   jdoe@sdlawyers.com`);
+  console.log(`  Attorney 2:   mjohnson@sdlawyers.com`);
+  console.log(`  Staff:        staff@sdlawyers.com`);
   console.log(`  Admin (test): admin@sdlawyers.com`);
   console.log(`  Guest (test): guest@sdlawyers.com`);
   console.log(`  Attorney:     attorney@sdlawyers.com`);

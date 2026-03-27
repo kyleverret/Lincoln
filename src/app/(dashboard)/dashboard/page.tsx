@@ -5,9 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Briefcase,
   Users,
-  FolderOpen,
   AlertTriangle,
   Clock,
   TrendingUp,
@@ -39,15 +37,12 @@ export default async function DashboardPage() {
         };
 
   const [
-    totalMatters,
     activeMatters,
     totalClients,
-    totalDocuments,
     urgentMatters,
     recentMatters,
     upcomingDeadlines,
   ] = await Promise.all([
-    db.matter.count({ where: { ...matterWhere, isActive: true } }),
     db.matter.count({
       where: { ...matterWhere, status: MatterStatus.ACTIVE, isActive: true },
     }),
@@ -65,7 +60,6 @@ export default async function DashboardPage() {
             },
           },
         }),
-    db.document.count({ where: { tenantId, isActive: true } }),
     db.matter.count({
       where: { ...matterWhere, priority: "URGENT", isActive: true },
     }),
@@ -100,13 +94,6 @@ export default async function DashboardPage() {
 
   const stats = [
     {
-      label: "Total Matters",
-      value: totalMatters,
-      icon: Briefcase,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
       label: "Active Matters",
       value: activeMatters,
       icon: TrendingUp,
@@ -119,13 +106,6 @@ export default async function DashboardPage() {
       icon: Users,
       color: "text-purple-600",
       bg: "bg-purple-50",
-    },
-    {
-      label: "Documents",
-      value: totalDocuments,
-      icon: FolderOpen,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
     },
   ];
 

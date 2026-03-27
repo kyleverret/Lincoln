@@ -6,6 +6,7 @@ import { hasAnyPermission } from "@/lib/permissions";
 import Link from "next/link";
 import { formatDistanceToNow, isPast, isWithinInterval, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { AddActionItemDialog } from "@/components/action-items/add-action-item-dialog";
 
 export const metadata = { title: "Action Items — Lincoln" };
 
@@ -79,11 +80,14 @@ export default async function ActionItemsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Action Items</h1>
-        <p className="text-muted-foreground mt-1">
-          Tasks and deadlines that need your attention
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Action Items</h1>
+          <p className="text-muted-foreground mt-1">
+            Tasks and deadlines that need your attention
+          </p>
+        </div>
+        <AddActionItemDialog />
       </div>
 
       {/* Matter-level deadlines */}
@@ -167,7 +171,7 @@ export default async function ActionItemsPage() {
         matterDeadlines.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-medium">All clear</p>
-            <p className="text-sm mt-1">No pending action items.</p>
+            <p className="text-sm mt-1">No pending action items. Use the button above to add one.</p>
           </div>
         )}
     </div>

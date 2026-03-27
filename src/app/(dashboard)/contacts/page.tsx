@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/permissions";
 import Link from "next/link";
 import { ContactType } from "@prisma/client";
 import { cn } from "@/lib/utils";
+import { DeleteContactButton } from "@/components/contacts/delete-contact-button";
 
 export const metadata = { title: "Contacts — Lincoln" };
 
@@ -65,6 +66,7 @@ export default async function ContactsPage({
   });
 
   const canCreate = hasPermission(session.user.role, "CONTACT_CREATE");
+  const canDelete = hasPermission(session.user.role, "CONTACT_DELETE");
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -149,19 +151,27 @@ export default async function ContactsPage({
                   )}
                 </div>
               </div>
-              {contact.matter && (
-                <div className="ml-4 text-right">
-                  <Link
-                    href={`/cases/${contact.matter.id}`}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {contact.matter.matterNumber}
-                  </Link>
-                  <p className="text-xs text-muted-foreground truncate max-w-32">
-                    {contact.matter.title}
-                  </p>
-                </div>
-              )}
+              <div className="flex items-center ml-4 gap-2">
+                {contact.matter && (
+                  <div className="text-right">
+                    <Link
+                      href={`/cases/${contact.matter.id}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {contact.matter.matterNumber}
+                    </Link>
+                    <p className="text-xs text-muted-foreground truncate max-w-32">
+                      {contact.matter.title}
+                    </p>
+                  </div>
+                )}
+                {canDelete && (
+                  <DeleteContactButton
+                    contactId={contact.id}
+                    contactName={`${contact.firstName} ${contact.lastName}`}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>
