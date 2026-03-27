@@ -123,10 +123,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // Determine active tenant context
-        // If tenantSlug provided, find that tenant; else use first available
-        let activeTenantUser = user.tenantUsers[0];
+        // Filter to only active tenants — suspended tenants cannot be accessed
+        const activeTenants = user.tenantUsers.filter(
+          (tu) => tu.tenant.isActive
+        );
+        if (activeTenants.length === 0) {
+          await audit.loginFailed(
+            { userId: user.id, ipAddress: ip, userAgent },
+            "All associated tenants are suspended"
+          );
+          return null;
+        }
+
+        let activeTenantUser = activeTenants[0];
         if (credentials.tenantSlug) {
-          const found = user.tenantUsers.find(
+          const found = activeTenants.find(
             (tu) => tu.tenant.slug === credentials.tenantSlug
           );
           if (found) activeTenantUser = found;

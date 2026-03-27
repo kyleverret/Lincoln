@@ -4,6 +4,14 @@
  * HIPAA requires an audit trail for all access to PHI/PII.
  * Every read, write, and delete of sensitive data should be logged.
  * Audit log records are immutable (no update/delete operations).
+ *
+ * RETENTION POLICY (HIPAA §164.312(b)):
+ * - Minimum retention: 6 years from date of creation
+ * - Audit logs must NEVER be deleted or modified within the retention period
+ * - The Prisma middleware in db.ts blocks all delete/update operations on AuditLog
+ * - Archival: Records older than 6 years may be moved to cold storage (S3/Spaces)
+ *   but must remain queryable for compliance audits
+ * - No automatic purge job should be configured without legal review
  */
 
 import { AuditAction } from "@prisma/client";

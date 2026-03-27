@@ -2,8 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { hasPermission } from "@/lib/permissions";
 import { intakeFormSchema } from "@/lib/validations/client";
 import { encryptField } from "@/lib/encryption";
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!hasPermission(session.user.role, "CLIENT_CREATE")) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  const intakes = await db.intakeForm.findMany({
+    where: { tenantId: session.user.tenantId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      practiceArea: true,
+      submittedAt: true,
+      reviewedAt: true,
+      createdAt: true,
+    },
+    take: 100,
+  });
+
+  return NextResponse.json(intakes);
+}
 
 export async function POST(req: NextRequest) {
   try {

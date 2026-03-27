@@ -1,9 +1,7 @@
-import { Bell, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { UserRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 interface HeaderProps {
   title: string;
@@ -20,10 +18,7 @@ export function Header({ title, role, actions }: HeaderProps) {
         <Badge variant="secondary" className="hidden sm:inline-flex">
           {ROLE_LABELS[role]}
         </Badge>
-        <Button variant="ghost" size="icon">
-          <Bell className="h-4 w-4" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   );
