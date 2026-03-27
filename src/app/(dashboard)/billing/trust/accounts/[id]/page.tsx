@@ -36,7 +36,6 @@ const STATUS_COLORS: Record<TrustTransactionStatus, string> = {
   PENDING_APPROVAL: "text-amber-600 border-amber-200",
   APPROVED: "text-blue-600 border-blue-200",
   REJECTED: "text-red-600 border-red-200",
-  VOIDED: "text-slate-400 border-slate-200",
 };
 
 export default async function TrustAccountPage({
