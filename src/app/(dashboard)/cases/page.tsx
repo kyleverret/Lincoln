@@ -202,7 +202,10 @@ export default async function CasesPage({ searchParams }: PageProps) {
                       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <span>{matter.matterNumber}</span>
                         {primaryClient && (
-                          <span>
+                          <span className="inline-flex items-center gap-0.5">
+                            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-teal-100 text-[9px] font-semibold text-teal-700 shrink-0">
+                              C
+                            </span>
                             {primaryClient.firstName} {primaryClient.lastName}
                           </span>
                         )}
@@ -210,7 +213,10 @@ export default async function CasesPage({ searchParams }: PageProps) {
                           <span>{matter.practiceArea.name}</span>
                         )}
                         {leadAttorney && (
-                          <span>
+                          <span className="inline-flex items-center gap-0.5">
+                            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-blue-100 text-[9px] font-semibold text-blue-700 shrink-0">
+                              A
+                            </span>
                             {leadAttorney.firstName} {leadAttorney.lastName}
                           </span>
                         )}

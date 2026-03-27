@@ -30,21 +30,26 @@ export async function GET(req: Request) {
     session.user.role === UserRole.SUPER_ADMIN ||
     session.user.role === UserRole.FIRM_ADMIN;
 
-  const entries = await db.timeEntry.findMany({
-    where: {
-      tenantId: session.user.tenantId ?? undefined,
-      ...(canReadAll ? {} : { userId: session.user.id }),
-      ...(matterId ? { matterId } : {}),
-      ...(unbilledOnly ? { isBilled: false, isBillable: true } : {}),
-    },
-    include: {
-      matter: { select: { id: true, title: true, matterNumber: true } },
-    },
-    orderBy: { date: "desc" },
-    take: 200,
-  });
+  try {
+    const entries = await db.timeEntry.findMany({
+      where: {
+        tenantId: session.user.tenantId ?? undefined,
+        ...(canReadAll ? {} : { userId: session.user.id }),
+        ...(matterId ? { matterId } : {}),
+        ...(unbilledOnly ? { isBilled: false, isBillable: true } : {}),
+      },
+      include: {
+        matter: { select: { id: true, title: true, matterNumber: true } },
+      },
+      orderBy: { date: "desc" },
+      take: 200,
+    });
 
-  return Response.json(entries);
+    return Response.json(entries);
+  } catch (error) {
+    console.error("Failed to fetch time entries:", error);
+    return Response.json({ error: "Failed to fetch time entries" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
@@ -63,37 +68,42 @@ export async function POST(req: Request) {
 
   const { matterId, date, hours, rate, description, isBillable } = parsed.data;
 
-  // Validate matter belongs to tenant
-  const matter = await db.matter.findFirst({
-    where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
-  });
-  if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
+  try {
+    // Validate matter belongs to tenant
+    const matter = await db.matter.findFirst({
+      where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
+    });
+    if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
 
-  const entry = await db.timeEntry.create({
-    data: {
-      tenantId: session.user.tenantId!,
-      matterId,
+    const entry = await db.timeEntry.create({
+      data: {
+        tenantId: session.user.tenantId!,
+        matterId,
+        userId: session.user.id,
+        date: new Date(date),
+        hours,
+        rate,
+        description,
+        isBillable,
+      },
+      include: {
+        matter: { select: { id: true, title: true, matterNumber: true } },
+      },
+    });
+
+    await writeAuditLog({
+      tenantId: session.user.tenantId ?? undefined,
       userId: session.user.id,
-      date: new Date(date),
-      hours,
-      rate,
-      description,
-      isBillable,
-    },
-    include: {
-      matter: { select: { id: true, title: true, matterNumber: true } },
-    },
-  });
+      matterId,
+      action: "TIME_ENTRY_CREATED",
+      entityType: "TimeEntry",
+      entityId: entry.id,
+      description: `${hours}h logged on ${matter.matterNumber}`,
+    });
 
-  await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
-    userId: session.user.id,
-    matterId,
-    action: "TIME_ENTRY_CREATED",
-    entityType: "TimeEntry",
-    entityId: entry.id,
-    description: `${hours}h logged on ${matter.matterNumber}`,
-  });
-
-  return Response.json(entry, { status: 201 });
+    return Response.json(entry, { status: 201 });
+  } catch (error) {
+    console.error("Failed to create time entry:", error);
+    return Response.json({ error: "Failed to create time entry" }, { status: 500 });
+  }
 }
