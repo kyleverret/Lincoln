@@ -42,7 +42,7 @@ RUN npm run build
 # ============================================================
 FROM node:24-alpine AS runner
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 
@@ -58,8 +58,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
 # Copy Prisma CLI so entrypoint can run migrations (standalone output omits it)
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# chown ensures the nextjs user can access engine binaries at runtime
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # Standalone output bundles everything into .next/standalone
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
