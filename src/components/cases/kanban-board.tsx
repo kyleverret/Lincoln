@@ -10,6 +10,7 @@ import {
   DragEndEvent,
   DragOverEvent,
   closestCorners,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -248,6 +249,7 @@ function KanbanColumn({
   ) => Promise<void>;
   onColumnDelete?: (columnId: string) => Promise<void>;
 }) {
+  const { setNodeRef: setDroppableRef } = useDroppable({ id: column.id });
   const isOverWip =
     column.wipLimit !== null && column.cards.length > column.wipLimit;
   const cardIds = column.cards.map((c) => c.id);
@@ -427,7 +429,7 @@ function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]">
+      <div ref={setDroppableRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => (
             <SortableCard key={card.id} card={card} />
@@ -583,18 +585,13 @@ export function KanbanBoard({
     >
       <div className="flex gap-4 overflow-x-auto pb-4 items-start">
         {columns.map((column) => (
-          <SortableContext
+          <KanbanColumn
             key={column.id}
-            items={[column.id]}
-            strategy={verticalListSortingStrategy}
-          >
-            <KanbanColumn
-              column={column}
-              canManage={canManage}
-              onColumnUpdate={onColumnUpdate}
-              onColumnDelete={onColumnDelete}
-            />
-          </SortableContext>
+            column={column}
+            canManage={canManage}
+            onColumnUpdate={onColumnUpdate}
+            onColumnDelete={onColumnDelete}
+          />
         ))}
 
         {canManage && (
