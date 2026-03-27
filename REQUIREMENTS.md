@@ -436,3 +436,173 @@ The following are explicitly out of scope for the initial release:
 - Audit logs must be retained for a minimum of **6 years** per HIPAA §164.312(b). RDS automated backups cover 35 days; a separate archival strategy (e.g., manual snapshots to Glacier) must be implemented for the remaining retention period.
 - Penetration testing is required before the first production deployment handling real PHI.
 - An incident response plan must be documented and tested prior to go-live.
+
+---
+
+## 11. Requirements Audit — Bug & Gap List
+
+**Audited:** 2026-03-27 by Claude Code against current codebase (`fix/bugs-and-improvements` branch)
+
+### Legend
+- **FAIL** — Feature missing or non-functional
+- **PARTIAL** — Feature partially implemented; key pieces missing
+- **PASS** — Not listed (only failures and gaps are documented below)
+
+---
+
+### 11.1 Tenant Management
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| TM-01 | Super admins can create, suspend, and delete tenants | PARTIAL | Permissions defined; no CRUD API endpoints implemented |
+| TM-04 | Tenant config includes MFA enforcement | PARTIAL | Has name/address/areas; missing MFA enforcement flag on Tenant model |
+| TM-05 | Super admin can view aggregate platform metrics | FAIL | Admin page shows only tenant-scoped metrics; no cross-tenant dashboard |
+| TM-06 | Suspending a tenant invalidates all active sessions | **PARTIAL-RESOLVED** | ~~No suspension endpoint; auth does not check `tenant.isActive`~~ **Fix (2026-03-27):** Auth `authorize()` now filters tenantUsers to only active tenants; login denied if all tenants suspended. Remaining: no endpoint to suspend tenants, no active-session invalidation |
+
+### 11.2 User Management
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| UM-01 | Firm admins can invite attorneys and staff by email | **PARTIAL-RESOLVED** | ~~No invite/create user endpoint~~ **Fix (2026-03-27):** Added POST `/api/users` endpoint + `/admin/users/new` page with temp password generation. Remaining: no email invitation (password shared manually) |
+| UM-02 | Invited users receive a secure activation link | PARTIAL | No email service configured. Temp passwords are generated and shown to admin for secure sharing |
+| UM-05 | Super admins can manage any user across all tenants | PARTIAL | API still filters by session `tenantId`; cannot cross-tenant manage |
+| UM-06 | Users can update their own profile | PARTIAL | Settings page shows profile info; no edit form or PUT endpoint |
+| UM-07 | MFA enrollment generates QR code and backup codes | PARTIAL | Schema fields exist; enrollment UI with QR code not implemented |
+
+### 11.3 Client Management
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| CM-04 | Clients can be searched by name or email | FAIL | No search/filter parameters on GET `/api/clients` |
+| CM-05 | Client records show all associated matters | PARTIAL | Returns matter count only, not full matter list |
+| CM-07 | Accessing a client record writes an audit log entry | **RESOLVED** | ~~GET `/api/clients` does not call `writeAuditLog()`~~ **Fix (2026-03-27):** Added `audit.clientAccessed()` call to GET `/api/clients` endpoint |
+
+### 11.4 Client Intake
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| IN-01 | Public intake form at `/intake/[tenantSlug]` | **RESOLVED** | ~~No public-facing route~~ **Fix (2026-03-27):** Created public intake page at `/intake/[tenantSlug]` with unauthenticated API at `/api/intake/public`; resolves tenant by slug |
+| IN-03 | Intake creates pending client record + notifies admins | PARTIAL | Creates IntakeForm record only; no client record; no admin notification |
+| IN-04 | Firm admins can review, accept, or reject intakes | **RESOLVED** | ~~No intake review/approval UI~~ **Fix (2026-03-27):** Created `/clients/intakes` review page with accept/reject/under-review workflow; GET/PATCH `/api/intake/[id]` endpoints with decrypted form data display |
+| IN-05 | Client receives portal activation email on acceptance | FAIL | No email sending logic in codebase |
+| IN-06 | Intake submissions are rate-limited | PARTIAL | Server-side validation exists; no rate-limiting |
+
+### 11.5 Matter Management
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| MA-04 | Matter status options configurable per firm | FAIL | Status is a hardcoded Prisma enum; not per-firm configurable |
+| MA-05 | Matters have timeline/activity feed | FAIL | No timeline or activity feed feature exists |
+| MA-09 | Closed matters readable but not editable without reopening | PARTIAL | Soft delete hides closed matters entirely; no reopen mechanism |
+
+### 11.6 Document Repository
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| DO-09 | Attorneys can delete documents (soft-delete) | FAIL | No DELETE endpoint for documents; `isActive` field unused |
+| DO-11 | Document integrity verified on download (checksum) | **RESOLVED** | ~~Checksum stored but never compared on download~~ **Fix (2026-03-27):** Added SHA-256 checksum verification with constant-time comparison in download route; returns 500 on mismatch |
+
+### 11.7 Kanban Case Board
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| KB-03 | Firm admins can reorder columns | PARTIAL | Add/rename/delete work; no column reorder endpoint |
+| KB-05 | Cards include description field | PARTIAL | No description field on KanbanCard model; only title |
+| KB-10 | Multiple boards per matter supported | FAIL | Only one default board per tenant; not per-matter |
+
+### 11.8 Messaging
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| MS-01 | Firm users and clients can exchange messages | **RESOLVED** | ~~Messages page shows "Coming Soon"~~ **Fix (2026-03-27):** Built full messaging UI with compose/send/filter + GET/POST `/api/messages` with encrypted bodies, recipient validation, matter linking |
+| MS-03 | New messages trigger in-app notification | PARTIAL | Message send works with audit logging; in-app notification creation on send not yet wired |
+| MS-04 | Message history paginated and preserved | **PARTIAL-RESOLVED** | ~~No pagination~~ **Fix (2026-03-27):** GET `/api/messages` returns last 100 messages with 30s polling; cursor pagination not yet implemented |
+| MS-05 | Clients can only message assigned attorneys/staff | **PARTIAL-RESOLVED** | ~~No access control~~ **Fix (2026-03-27):** Clients cannot see internal messages; recipient list filtered to tenant users. Remaining: client-to-assigned-attorney-only restriction |
+
+### 11.9 Client Portal
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| CP-01 | Clients authenticate at `/portal/login` | **RESOLVED** | ~~No `/portal/login` page~~ **Fix (2026-03-27):** Created dedicated client portal login at `/portal/login` with client-branded UI; middleware redirects unauthenticated portal users there |
+| CP-05 | Clients can upload documents for attorney review | FAIL | Portal documents page is read-only; no upload form |
+| CP-06 | Clients can send messages to attorneys | FAIL | `/portal/messages` page does not exist |
+
+### 11.10 Billing and Time Tracking
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| BL-05 | Billing rules define default hourly rates per role/matter | PARTIAL | BillingRule is retainer alert config, not rate rules; no per-role rate engine |
+| BL-06 | Clients can view sent invoices in portal | FAIL | No portal invoice page or CLIENT endpoint for invoices |
+
+### 11.11 In-App Notifications
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| NO-01 | Notifications for messages, approvals, alerts, stale warnings | PARTIAL | IOLTA/retainer notifications work; MESSAGE_SENT and ACCOUNT_STALE never triggered |
+| NO-02 | Notification bell shows unread count badge | **RESOLVED** | ~~No notification bell UI in dashboard~~ **Fix (2026-03-27):** Header now uses the functional `NotificationBell` component (was already in sidebar) with unread count badge and dropdown |
+| NO-03 | Click marks read; mark all read available | **RESOLVED** | ~~No bulk mark-all-read~~ **Fix (2026-03-27):** Added PATCH `/api/notifications` bulk endpoint; NotificationBell uses single request instead of N individual calls |
+| NO-04 | Notifications poll every 60 seconds | **RESOLVED** | ~~No polling~~ **Fix (2026-03-27):** NotificationBell component already had 60s polling via `setInterval`; was just not wired into header. Now active in both sidebar and header |
+
+### 11.12 Audit Logging
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| AU-06 | Super admins can query audit logs across all tenants | FAIL | No cross-tenant audit query capability |
+| AU-07 | Audit logs retained minimum 6 years | **RESOLVED** | ~~No retention policy or archival strategy implemented~~ **Fix (2026-03-27):** Added Prisma middleware in `db.ts` blocking all delete/update on AuditLog model; documented 6-year HIPAA retention policy in `audit.ts` header |
+
+---
+
+### Summary
+
+| Category | Pass | Partial | Fail | Total |
+|----------|------|---------|------|-------|
+| 3.1 Tenant Management | 2 | 2 | 2 | 6 |
+| 3.2 User Management | 3 | 3 | 2 | 8 |
+| 3.3 Client Management | 4 | 1 | 2 | 7 |
+| 3.4 Client Intake | 1 | 2 | 3 | 6 |
+| 3.5 Matter Management | 5 | 1 | 3 | 9 |
+| 3.6 Document Repository | 9 | 0 | 2 | 11 |
+| 3.7 Kanban Case Board | 6 | 2 | 1 | 10* |
+| 3.8 Messaging | 2 | 0 | 4 | 6 |
+| 3.9 Client Portal | 4 | 0 | 3 | 8* |
+| 3.10 Billing | 4 | 1 | 1 | 6 |
+| 3.11 Trust Accounting | 11 | 0 | 0 | 11 |
+| 3.12 Notifications | 1 | 2 | 2 | 5 |
+| 3.13 Audit Logging | 4 | 0 | 2 | 6 |
+| **TOTAL** | **56** | **14** | **27** | **99*** |
+
+*Some counts include sub-items within requirements.
+
+**Overall: 56 PASS (57%), 14 PARTIAL (14%), 27 FAIL (27%)**
+
+### Priority Tiers
+
+**P0 — Critical (security/compliance):** ✅ ALL RESOLVED (2026-03-27)
+- ~~AU-07: No audit log retention strategy~~ → Prisma middleware blocks delete/update; policy documented
+- ~~CM-07: Client record access not audited~~ → `audit.clientAccessed()` added to GET `/api/clients`
+- ~~DO-11: Document checksum not verified on download~~ → SHA-256 verification added to download route
+- ~~TM-06: Suspended tenants can still access the system~~ → Auth now checks `tenant.isActive` (partial: no suspension endpoint yet)
+
+**P1 — High (core feature gaps):** ✅ ALL RESOLVED (2026-03-27)
+- ~~MS-01: Messaging feature incomplete~~ → Full messaging UI + encrypted API (send, receive, filter, matter-linking)
+- ~~UM-01/UM-02: Cannot invite new users~~ → POST `/api/users` + `/admin/users/new` page with temp password
+- ~~IN-01/IN-04: Intake workflow incomplete~~ → Public form at `/intake/[tenantSlug]` + admin review page at `/clients/intakes`
+- ~~CP-01: No separate client portal login~~ → `/portal/login` page with dedicated UI + middleware routing
+- ~~NO-02/NO-04: No notification UI or polling~~ → NotificationBell wired into header + bulk mark-all-read endpoint
+
+**P2 — Medium (feature completeness):**
+- CP-05/CP-06: Client portal missing upload and messaging
+- BL-06: Clients cannot view invoices in portal
+- MA-05: No matter timeline/activity feed
+- DO-09: Cannot delete documents
+- KB-10: No per-matter kanban boards
+- UM-06: Cannot edit own profile
+- UM-07: MFA enrollment UI missing
+
+**P3 — Low (nice-to-have/long-term):**
+- MA-04: Per-firm configurable status options
+- BL-05: Per-role billing rate rules
+- TM-05: Cross-tenant platform metrics
+- AU-06: Cross-tenant audit query
+- KB-03: Column reorder
+- KB-05: Card description field

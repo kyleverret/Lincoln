@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { retrieveDocument } from "@/lib/storage";
+import { computeChecksum, constantTimeEquals } from "@/lib/encryption";
 import { audit } from "@/lib/audit";
 import { UserRole } from "@prisma/client";
 
@@ -78,6 +79,21 @@ export async function GET(
       authTag ?? "",
       document.encryptionKeyId
     );
+
+    // Verify document integrity (checksum of plaintext)
+    if (document.checksum && document.checksum !== "pending") {
+      const downloadChecksum = computeChecksum(decrypted);
+      if (!constantTimeEquals(document.checksum, downloadChecksum)) {
+        console.error(
+          `[DOCUMENT DOWNLOAD] Checksum mismatch for document ${document.id}: ` +
+          `expected ${document.checksum}, got ${downloadChecksum}`
+        );
+        return NextResponse.json(
+          { message: "Document integrity check failed" },
+          { status: 500 }
+        );
+      }
+    }
 
     // Audit log
     await audit.documentDownloaded(

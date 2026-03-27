@@ -45,8 +45,10 @@ export function NotificationBell() {
   }
 
   async function markAllRead() {
-    const unread = notifications.filter((n) => !n.readAt);
-    await Promise.all(unread.map((n) => markRead(n.id)));
+    await fetch("/api/notifications", { method: "PATCH" });
+    setNotifications((prev) =>
+      prev.map((n) => n.readAt ? n : { ...n, readAt: new Date().toISOString() })
+    );
   }
 
   return (

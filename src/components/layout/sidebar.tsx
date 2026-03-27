@@ -90,10 +90,10 @@ const SECONDARY_NAV: NavItem[] = [
     icon: MessageSquare,
   },
   {
-    href: "/clients/intake",
-    label: "Intake",
+    href: "/clients/intakes",
+    label: "Intake Review",
     icon: ClipboardList,
-    roles: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY, UserRole.STAFF],
+    roles: [UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.ATTORNEY],
   },
   {
     href: "/admin",

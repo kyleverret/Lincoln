@@ -48,6 +48,16 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // HIPAA: audit log client list access (PHI)
+    await audit.clientAccessed(
+      {
+        tenantId,
+        userId,
+        ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
+      },
+      "LIST"
+    );
+
     return NextResponse.json(clients);
   } catch (err) {
     console.error("[CLIENTS GET]", err);

@@ -17,8 +17,9 @@ import { UserRole } from "@prisma/client";
 const PUBLIC_ROUTES = [
   "/login",
   "/portal/login",
-  "/intake",   // public intake form
-  "/api/auth", // NextAuth endpoints
+  "/intake",          // public intake form
+  "/api/auth",        // NextAuth endpoints
+  "/api/intake/public", // public intake submission
 ];
 
 // Routes only accessible by CLIENT role
@@ -48,7 +49,10 @@ export default auth((req: NextRequest & { auth: any }) => {
 
   // Require authentication for all other routes
   if (!session?.user) {
-    const loginUrl = new URL("/login", req.url);
+    // Portal routes redirect to portal login; firm routes to firm login
+    const isPortalRoute = PORTAL_ROUTES.some((r) => pathname.startsWith(r));
+    const loginPath = isPortalRoute ? "/portal/login" : "/login";
+    const loginUrl = new URL(loginPath, req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
