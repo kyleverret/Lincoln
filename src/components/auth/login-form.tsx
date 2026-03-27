@@ -106,7 +106,7 @@ export function LoginForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="attorney@smithlaw.com"
+                placeholder="attorney@sdlawyers.com"
                 required
                 autoComplete="email"
                 autoFocus

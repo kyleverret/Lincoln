@@ -173,7 +173,88 @@ async function main() {
     },
   });
 
-  console.log("✓ Users created (5 total)");
+  // ---------------------------------------------------------------------------
+  // Admin login (for Kyle to access test environment)
+  // ---------------------------------------------------------------------------
+  const adminUser = await db.user.upsert({
+    where: { email: "admin@sdlawyers.com" },
+    update: {},
+    create: {
+      email: "admin@sdlawyers.com",
+      passwordHash: demoPasswordHash,
+      firstName: "Kyle",
+      lastName: "Admin",
+      isActive: true,
+      emailVerified: new Date(),
+    },
+  });
+
+  await db.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: tenant.id, userId: adminUser.id } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      userId: adminUser.id,
+      role: UserRole.FIRM_ADMIN,
+      title: "Administrator",
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Guest login (read-only test access)
+  // ---------------------------------------------------------------------------
+  const guestUser = await db.user.upsert({
+    where: { email: "guest@sdlawyers.com" },
+    update: {},
+    create: {
+      email: "guest@sdlawyers.com",
+      passwordHash: demoPasswordHash,
+      firstName: "Guest",
+      lastName: "User",
+      isActive: true,
+      emailVerified: new Date(),
+    },
+  });
+
+  await db.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: tenant.id, userId: guestUser.id } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      userId: guestUser.id,
+      role: UserRole.STAFF,
+      title: "Guest",
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Guest Attorney login
+  // ---------------------------------------------------------------------------
+  const guestAttorney = await db.user.upsert({
+    where: { email: "attorney@sdlawyers.com" },
+    update: {},
+    create: {
+      email: "attorney@sdlawyers.com",
+      passwordHash: demoPasswordHash,
+      firstName: "Guest",
+      lastName: "Attorney",
+      isActive: true,
+      emailVerified: new Date(),
+    },
+  });
+
+  await db.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: tenant.id, userId: guestAttorney.id } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      userId: guestAttorney.id,
+      role: UserRole.ATTORNEY,
+      title: "Guest Attorney",
+    },
+  });
+
+  console.log("✓ Users created (8 total)");
 
   // ---------------------------------------------------------------------------
   // Practice Areas
@@ -413,6 +494,9 @@ async function main() {
   console.log(`  Attorney 1:   jdoe@smith-associates.example.com`);
   console.log(`  Attorney 2:   mjohnson@smith-associates.example.com`);
   console.log(`  Staff:        staff@smith-associates.example.com`);
+  console.log(`  Admin (test): admin@sdlawyers.com`);
+  console.log(`  Guest (test): guest@sdlawyers.com`);
+  console.log(`  Attorney:     attorney@sdlawyers.com`);
   console.log("\n⚠️  Change all passwords before production use!");
 }
 

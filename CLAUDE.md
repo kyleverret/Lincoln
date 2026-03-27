@@ -76,9 +76,9 @@ infrastructure/
   DEPLOYMENT-DO.md   # Active: DigitalOcean deployment runbook
 
 docker/
-  entrypoint.sh      # Runs `prisma db push` then starts server
+  entrypoint.sh      # Runs `prisma db push` then starts server (no psql dependency)
 
-.mcp.json            # Gitignored; DO MCP server config (uses $DO_TOKEN from env)
+.mcp.json            # Gitignored; DO MCP server config (Bearer $DO_TOKEN auth)
 .local/              # Gitignored local dev scripts (not committed)
   watch-do-deploy.sh # Polls DO API after push; invokes Claude on failure
 .do-logs/            # Gitignored; DO deploy log output from watch script
@@ -193,7 +193,9 @@ import { ROLE_LABELS, hasPermission } from "@/lib/permissions";
 - **`PrismaAdapter`** must be cast `as any` due to `@auth/core` version conflict between `next-auth` and `@auth/prisma-adapter`.
 - **`crypto.hkdfSync`** returns `ArrayBuffer` — wrap with `Buffer.from(...)` before use.
 - **`next/font/google`** requires network access at build time — removed in favor of Tailwind's `font-sans` (system font).
-- **DO App Platform dev database** has severely restricted PostgreSQL permissions. Do not use it for production. Use a standalone Managed PostgreSQL cluster.
+- **DO App Platform dev database** was deprecated due to PG15 permission restrictions. The app now uses a Managed PostgreSQL 16 cluster with a `databases` component binding in the app spec.
+- **`DATABASE_URL` in production** is managed by the DO App Platform `${db.DATABASE_URL}` binding — do not hardcode connection strings in the app spec. The binding provides private networking automatically.
+- **`entrypoint.sh`** must not use `psql` CLI — it previously caused deploy failures. Only `prisma db push` is needed.
 - **`TrustTransactionStatus`** enum values: `CLEARED`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`. There is no `VOIDED`.
 - **`BankAccount`** field is `lastFourDigits`, not `accountNumberLast4`. There is no `routingNumber` field.
 
@@ -203,7 +205,7 @@ import { ROLE_LABELS, hasPermission } from "@/lib/permissions";
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string with `?sslmode=require` in production |
+| `DATABASE_URL` | Injected by DO App Platform via `${db.DATABASE_URL}` binding in production; manual in dev |
 | `NEXTAUTH_SECRET` | NextAuth JWT signing secret (min 32 chars) |
 | `NEXTAUTH_URL` | Full app URL (e.g., `https://lincoln.verrettech.com`) |
 | `MASTER_ENCRYPTION_KEY` | 64-char hex (32 bytes) for HKDF key derivation |
@@ -244,7 +246,7 @@ docker-compose up --build
 
 ## Migrations
 
-> **Current state:** No migration history exists. The app uses `prisma db push` on startup via `docker/entrypoint.sh`. Once a managed PostgreSQL cluster with full DDL permissions is connected, this should be switched to proper `migrate deploy` workflow.
+> **Current state:** No migration history exists. The app uses `prisma db push` on startup via `docker/entrypoint.sh`. The managed PostgreSQL 16 cluster is now connected with full DDL permissions. This should be switched to proper `migrate deploy` workflow once a migration baseline is created.
 
 1. Edit `prisma/schema.prisma`
 2. Run `npx prisma migrate dev --name <description>`
@@ -275,8 +277,10 @@ Client portal login uses client email + password set during intake.
 **Active deployment: DigitalOcean App Platform**
 
 - App ID: `277709bf-447d-41a7-8d06-544c9faba45e`
-- Target URL: `https://lincoln.verrettech.com` (CNAME pending)
+- Live URL: `https://lincoln-vcyps.ondigitalocean.app`
+- Custom domain: `https://lincoln.verrettech.com` (CNAME pending)
 - Push to `main` → auto-deploy triggers
+- Database bound via app spec `databases` component → `lincoln-law-db1` cluster (private networking)
 - See `infrastructure/DEPLOYMENT-DO.md` for full runbook
 
 **Deploy monitoring (from local Mac):**
@@ -287,7 +291,7 @@ Client portal login uses client email + password set during intake.
 ```
 
 **MCP Integration:**
-DigitalOcean remote MCP servers (Apps + Databases) are configured in `.mcp.json` at the project root. They authenticate via the `DO_TOKEN` environment variable (set in `~/.zshrc`). When loaded, Claude can query app deployments, logs, database clusters, and connection details directly.
+DigitalOcean remote MCP servers (Apps + Databases) are configured in `.mcp.json` at the project root. They authenticate via `Bearer $DO_TOKEN` in the `Authorization` header (`DO_TOKEN` is set in `~/.zshrc`). When loaded, Claude can query app deployments, logs, database clusters, and connection details directly.
 
 ```
 # .mcp.json server endpoints
@@ -295,7 +299,7 @@ Apps:      https://apps.mcp.digitalocean.com/mcp
 Databases: https://databases.mcp.digitalocean.com/mcp
 ```
 
-> **Note:** `.mcp.json` is gitignored. The `DO_TOKEN` env var must be set locally for MCP auth to work. Restart Claude Code after changes.
+> **Note:** `.mcp.json` is gitignored. The `DO_TOKEN` env var must be set locally for MCP auth to work. The `Authorization` header must use `Bearer ${DO_TOKEN}` format. Restart Claude Code after changes.
 
 ---
 
@@ -303,8 +307,9 @@ Databases: https://databases.mcp.digitalocean.com/mcp
 
 - Push to `main` triggers DigitalOcean App Platform auto-deploy
 - Docker build uses multi-stage build (deps → builder → runner)
-- `docker/entrypoint.sh` runs `prisma db push` on container start
-- **Pending:** Switch to `prisma migrate deploy` once managed PostgreSQL cluster is connected and migration baseline is created
+- `docker/entrypoint.sh` runs `prisma db push` on container start (no `psql` dependency)
+- Health check: 60s initial delay, 15s period, 10s timeout, 9 failure threshold (allows time for `prisma db push`)
+- **Pending:** Switch to `prisma migrate deploy` once migration baseline is created
 
 ---
 
@@ -312,11 +317,11 @@ Databases: https://databases.mcp.digitalocean.com/mcp
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| DO App Platform | Active | App ID `277709bf-447d-41a7-8d06-544c9faba45e`, on Lincoln-1-VPC |
-| DO Managed PostgreSQL | Provisioned | On Lincoln-1-VPC (`10.116.0.0/20`); use private hostname for `DATABASE_URL` |
-| DO Dev Database | Deprecated | Had PG15 permission restrictions; replaced by Managed PostgreSQL cluster |
+| DO App Platform | Active | App ID `277709bf-447d-41a7-8d06-544c9faba45e`; live at `lincoln-vcyps.ondigitalocean.app` |
+| DO Managed PostgreSQL | Active | `lincoln-law-db1` (PG16); bound via app spec `databases` component (private networking) |
+| DO Dev Database | Removed | Was PG15 with restricted permissions; fully replaced by Managed PostgreSQL cluster |
 | DO Spaces | Not yet configured | Needed for document storage; currently using local storage |
 | VPC | Active | Lincoln-1-VPC — `10.116.0.0/20`; app and database share this network |
 | Custom domain | Pending | `lincoln.verrettech.com` — CNAME to be added in Squarespace DNS |
-| MCP Servers | Configured | Remote DO MCP (Apps + Databases) in `.mcp.json`; requires `DO_TOKEN` env var |
+| MCP Servers | Configured | Remote DO MCP (Apps + Databases) in `.mcp.json`; requires `DO_TOKEN` env var; `Bearer` auth |
 | AWS/Terraform | Legacy/unused | Do not deploy; kept for reference only |
