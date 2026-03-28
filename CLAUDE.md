@@ -4,6 +4,24 @@ This file gives Claude Code the project-specific context needed to work safely a
 
 ---
 
+## Mandatory Reference Documents
+
+**Before writing or reviewing any code, Claude MUST reference these documents:**
+
+| Document | Purpose | When to Reference |
+|----------|---------|-------------------|
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Systems, data, security, and privacy-by-design principles | Every code change — validate compliance before committing |
+| **[BUGS.md](./BUGS.md)** | Running bug tracker with root cause analysis | After every bug fix — log the bug, root cause, and resolution |
+| **[REQUIREMENTS.md](./REQUIREMENTS.md)** | Product requirements and feature audit | When building new features — check against requirements |
+
+**Workflow:**
+1. Before writing code → check ARCHITECTURE.md principles apply
+2. After fixing a bug → add entry to BUGS.md with root cause analysis
+3. Before committing → run through ARCHITECTURE.md §6 Compliance Checklist
+4. When a new bug is found → add to BUGS.md immediately, even before fixing
+
+---
+
 ## Project Overview
 
 **Lincoln** is a multi-tenant law firm case management platform built with Next.js 15, Prisma, and PostgreSQL. It is designed to HIPAA standards and supports multiple independent law firms (tenants), their staff, attorneys, and their clients.
