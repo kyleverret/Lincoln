@@ -34,6 +34,7 @@ export default async function ContactsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/login");
 
   if (!hasPermission(session.user.role, "CONTACT_READ")) {
     redirect("/dashboard");
@@ -43,7 +44,7 @@ export default async function ContactsPage({
 
   const contacts = await db.contact.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       isActive: true,
       ...(type && Object.keys(CONTACT_TYPE_LABELS).includes(type)
         ? { type: type as ContactType }

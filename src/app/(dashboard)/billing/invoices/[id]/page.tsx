@@ -25,6 +25,7 @@ export default async function InvoiceDetailPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/login");
 
   if (!hasPermission(session.user.role, "BILLING_READ")) {
     redirect("/dashboard");
@@ -33,7 +34,7 @@ export default async function InvoiceDetailPage({
   const { id } = await params;
 
   const invoice = await db.invoice.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
     include: {
       matter: { select: { id: true, title: true, matterNumber: true } },
       lineItems: { orderBy: { position: "asc" } },

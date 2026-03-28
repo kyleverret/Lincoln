@@ -16,6 +16,7 @@ export default async function TasksPage() {
   if (!session?.user) redirect("/login");
 
   const { id: userId, tenantId, role } = session.user;
+  if (!tenantId) redirect("/login");
 
   if (!hasAnyPermission(role, ["MATTER_READ_ANY", "MATTER_READ_ASSIGNED"])) {
     redirect("/dashboard");
@@ -30,12 +31,12 @@ export default async function TasksPage() {
     db.kanbanCard.findMany({
       where: {
         column: {
-          board: { tenantId: tenantId ?? undefined, boardType: "TASK" },
+          board: { tenantId, boardType: "TASK" },
           isTerminal: false,
         },
         matter: canReadAll
-          ? { tenantId: tenantId ?? undefined }
-          : { tenantId: tenantId ?? undefined, assignments: { some: { userId } } },
+          ? { tenantId }
+          : { tenantId, assignments: { some: { userId } } },
       },
       include: {
         matter: { select: { id: true, title: true, matterNumber: true } },
@@ -47,7 +48,7 @@ export default async function TasksPage() {
     // Matter-level deadlines (statute of limitations, matter due dates)
     db.matter.findMany({
       where: {
-        tenantId: tenantId ?? undefined,
+        tenantId,
         isActive: true,
         OR: [
           { dueDate: { lte: addDays(now, 14), gte: now } },
