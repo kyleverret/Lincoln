@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -404,9 +405,9 @@ export default function NewCasePage() {
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No clients found.{" "}
-                  <a href="/clients/new" className="underline text-primary">
+                  <Link href="/clients/new" className="underline text-primary">
                     Add a client first
-                  </a>
+                  </Link>
                   .
                 </p>
               )}

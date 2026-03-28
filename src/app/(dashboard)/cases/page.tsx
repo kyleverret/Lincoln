@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Search,
-  Filter,
   Briefcase,
   Calendar,
   AlertCircle,
@@ -21,10 +20,8 @@ import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
 } from "@/lib/utils";
-import { UserRole, MatterStatus, Priority } from "@prisma/client";
+import { UserRole, MatterStatus, Priority, Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
-import { headers } from "next/headers";
 
 export const metadata = { title: "Cases" };
 
@@ -50,7 +47,7 @@ export default async function CasesPage({ searchParams }: PageProps) {
     ? { tenantId }
     : { tenantId, assignments: { some: { userId } } };
 
-  const where: any = {
+  const where: Prisma.MatterWhereInput = {
     ...whereBase,
     isActive: true,
   };
