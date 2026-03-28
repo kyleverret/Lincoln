@@ -18,6 +18,25 @@ const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 12;  // 96 bits — recommended for GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
+// --- Lazy validation for encryption environment variables ---
+// Cannot validate at module scope because NODE_ENV=production is set during
+// `next build` but encryption env vars are only available at runtime.
+
+let _salt: string | null = null;
+function getSalt(): string {
+  if (_salt !== null) return _salt;
+  const envSalt = process.env.ENCRYPTION_SALT;
+  if (!envSalt && process.env.NODE_ENV === "production" && typeof window === "undefined") {
+    // Only enforce at runtime, not during build (build sets NODE_ENV=production but has no secrets)
+    console.error("[SECURITY] ENCRYPTION_SALT not set in production — encryption may be weakened");
+  }
+  if (!envSalt) {
+    console.warn("[SECURITY] ENCRYPTION_SALT not set — using dev default. DO NOT use in production.");
+  }
+  _salt = envSalt || "lincoln-dev-salt-do-not-use-in-production";
+  return _salt;
+}
+
 function getMasterKey(): Buffer {
   const key = process.env.MASTER_ENCRYPTION_KEY;
   if (!key || key.length < 64) {
@@ -35,10 +54,10 @@ function getMasterKey(): Buffer {
  */
 export function deriveTenantKey(tenantEncryptionKeyId: string): Buffer {
   const masterKey = getMasterKey();
-  const salt = Buffer.from(process.env.ENCRYPTION_SALT ?? "", "hex");
+  const saltBuf = Buffer.from(getSalt(), "hex");
   const info = Buffer.from(`tenant:${tenantEncryptionKeyId}`, "utf8");
 
-  return Buffer.from(crypto.hkdfSync("sha256", masterKey, salt, info, KEY_LENGTH));
+  return Buffer.from(crypto.hkdfSync("sha256", masterKey, saltBuf, info, KEY_LENGTH));
 }
 
 /**

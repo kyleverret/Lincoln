@@ -22,14 +22,14 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role } = session.user;
     const { id } = await params;
 
     if (!hasPermission(role, "USER_READ")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const tenantUser = await db.tenantUser.findFirst({
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     });
 
     if (!tenantUser) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     await writeAuditLog({
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     });
   } catch (err) {
     console.error("[USER GET]", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -90,14 +90,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role } = session.user;
     const { id } = await params;
 
     if (!hasPermission(role, "USER_UPDATE_ANY")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Verify user belongs to this tenant
@@ -107,12 +107,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
 
     if (!tenantUser) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     // Prevent non-super-admins from modifying super admin users
     if (tenantUser.role === UserRole.SUPER_ADMIN && role !== UserRole.SUPER_ADMIN) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -120,7 +120,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { message: "Validation error", errors: parsed.error.flatten() },
+        { error: "Validation error", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     // Prevent elevating to SUPER_ADMIN unless you are one
     if (newRole === UserRole.SUPER_ADMIN && role !== UserRole.SUPER_ADMIN) {
       return NextResponse.json(
-        { message: "Cannot assign SUPER_ADMIN role" },
+        { error: "Cannot assign SUPER_ADMIN role" },
         { status: 403 }
       );
     }
@@ -142,7 +142,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       });
       if (existing) {
         return NextResponse.json(
-          { message: "Email already in use" },
+          { error: "Email already in use" },
           { status: 409 }
         );
       }
@@ -188,6 +188,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[USER PUT]", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

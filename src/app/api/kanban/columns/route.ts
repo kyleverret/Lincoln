@@ -7,20 +7,20 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role } = session.user;
 
     if (!hasPermission(role, "KANBAN_MANAGE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { name, color, boardId } = await req.json();
 
     if (!name || !boardId) {
       return NextResponse.json(
-        { message: "Name and boardId are required" },
+        { error: "Name and boardId are required" },
         { status: 400 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     if (!board) {
       return NextResponse.json(
-        { message: "Board not found" },
+        { error: "Board not found" },
         { status: 404 }
       );
     }
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[KANBAN COLUMN CREATE]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

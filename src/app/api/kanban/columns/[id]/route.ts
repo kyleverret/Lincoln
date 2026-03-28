@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function PUT(
   req: NextRequest,
@@ -10,13 +11,13 @@ export async function PUT(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role } = session.user;
 
     if (!hasPermission(role, "KANBAN_MANAGE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -29,7 +30,7 @@ export async function PUT(
     });
 
     if (!column || column.board.tenantId !== tenantId) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const updated = await db.kanbanColumn.update({
@@ -41,11 +42,19 @@ export async function PUT(
       },
     });
 
+    await writeAuditLog({
+      userId: session.user.id,
+      tenantId: tenantId,
+      action: "KANBAN_UPDATED",
+      entityType: "KanbanColumn",
+      entityId: id,
+    });
+
     return NextResponse.json(updated);
   } catch (err) {
     console.error("[KANBAN COLUMN UPDATE]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -58,13 +67,13 @@ export async function DELETE(
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role } = session.user;
 
     if (!hasPermission(role, "KANBAN_MANAGE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -79,17 +88,26 @@ export async function DELETE(
     });
 
     if (!column || column.board.tenantId !== tenantId) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     if (column._count.cards > 0) {
       return NextResponse.json(
         {
-          message: `Cannot delete column with ${column._count.cards} card(s). Move or remove cards first.`,
+          error: `Cannot delete column with ${column._count.cards} card(s). Move or remove cards first.`,
         },
         { status: 400 }
       );
     }
+
+    await writeAuditLog({
+      userId: session.user.id,
+      tenantId: tenantId,
+      action: "KANBAN_DELETED",
+      entityType: "KanbanColumn",
+      entityId: id,
+      description: `Kanban column "${column.name}" deleted`,
+    });
 
     await db.kanbanColumn.delete({ where: { id } });
 
@@ -97,7 +115,7 @@ export async function DELETE(
   } catch (err) {
     console.error("[KANBAN COLUMN DELETE]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

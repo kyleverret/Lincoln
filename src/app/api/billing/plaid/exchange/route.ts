@@ -34,6 +34,7 @@ function getPlaidClient() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -51,13 +52,13 @@ export async function POST(req: Request) {
   const { publicToken, bankAccountId, plaidAccountId } = parsed.data;
 
   const account = await db.bankAccount.findFirst({
-    where: { id: bankAccountId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: bankAccountId, tenantId: session.user.tenantId },
   });
   if (!account) return Response.json({ error: "Bank account not found" }, { status: 404 });
 
   // Fetch tenant encryption key ID for encrypting the access token
   const tenant = await db.tenant.findUnique({
-    where: { id: session.user.tenantId! },
+    where: { id: session.user.tenantId },
     select: { encryptionKeyId: true },
   });
   if (!tenant) return Response.json({ error: "Tenant not found" }, { status: 404 });
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     });
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       action: "PLAID_CONNECTED",
       entityType: "BankAccount",

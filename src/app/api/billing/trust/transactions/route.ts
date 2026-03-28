@@ -19,6 +19,7 @@ const createSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "TRUST_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
 
   const txns = await db.trustTransaction.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       ...(matterId ? { matterId } : {}),
       ...(bankAccountId ? { bankAccountId } : {}),
       ...(status ? { status } : {}),
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "TRUST_WRITE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -63,8 +65,8 @@ export async function POST(req: Request) {
 
   // Validate matter and account belong to tenant
   const [matter, account] = await Promise.all([
-    db.matter.findFirst({ where: { id: matterId, tenantId: session.user.tenantId ?? undefined } }),
-    db.bankAccount.findFirst({ where: { id: bankAccountId, tenantId: session.user.tenantId ?? undefined } }),
+    db.matter.findFirst({ where: { id: matterId, tenantId: session.user.tenantId } }),
+    db.bankAccount.findFirst({ where: { id: bankAccountId, tenantId: session.user.tenantId } }),
   ]);
   if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
   if (!account) return Response.json({ error: "Bank account not found" }, { status: 404 });
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
 
   const txn = await db.trustTransaction.create({
     data: {
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       matterId,
       bankAccountId,
       type,
@@ -95,10 +97,10 @@ export async function POST(req: Request) {
 
   // Notify approval queue if pending
   if (needsApproval) {
-    await notifyTransferPending(session.user.tenantId!, txn.id, matterId, amount).catch(() => {});
+    await notifyTransferPending(session.user.tenantId, txn.id, matterId, amount).catch(() => {});
   } else {
     // Check if balance dropped below retainer alert threshold
-    await checkRetainerAlert(session.user.tenantId!, matterId, bankAccountId).catch(() => {});
+    await checkRetainerAlert(session.user.tenantId, matterId, bankAccountId).catch(() => {});
   }
 
   const auditAction =
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
     : "TRUST_TRANSFER_REQUESTED";
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     matterId,
     action: auditAction,

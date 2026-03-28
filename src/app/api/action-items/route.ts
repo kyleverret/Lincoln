@@ -14,13 +14,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
 
     if (!hasPermission(role, "KANBAN_USE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const canReadAll =
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[ACTION-ITEMS GET]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -69,13 +69,13 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
 
     if (!hasPermission(role, "KANBAN_USE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     if (!matterId || !title || !dueDate) {
       return NextResponse.json(
-        { message: "matterId, title, and dueDate are required" },
+        { error: "matterId, title, and dueDate are required" },
         { status: 400 }
       );
     }
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!matter) {
-      return NextResponse.json({ message: "Matter not found" }, { status: 404 });
+      return NextResponse.json({ error: "Matter not found" }, { status: 404 });
     }
 
     // Find the matter's existing kanban card (non-terminal column)
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
       if (!board?.columns[0]) {
         return NextResponse.json(
-          { message: "No kanban board configured" },
+          { error: "No kanban board configured" },
           { status: 400 }
         );
       }
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[ACTION-ITEMS POST]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

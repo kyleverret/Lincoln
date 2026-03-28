@@ -37,6 +37,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -47,7 +48,7 @@ export async function POST(
 
   const { accountId } = await params;
   const account = await db.bankAccount.findFirst({
-    where: { id: accountId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: accountId, tenantId: session.user.tenantId },
   });
   if (!account) return Response.json({ error: "Not found" }, { status: 404 });
   if (!account.encPlaidAccessToken || !account.plaidAccountId) {
@@ -55,7 +56,7 @@ export async function POST(
   }
 
   const tenant = await db.tenant.findUnique({
-    where: { id: session.user.tenantId! },
+    where: { id: session.user.tenantId },
     select: { encryptionKeyId: true },
   });
   if (!tenant) return Response.json({ error: "Tenant not found" }, { status: 404 });
@@ -83,7 +84,7 @@ export async function POST(
     // Use a placeholder matter for unmatched transactions
     // Firm admins will match these via the reconciliation queue
     const placeholderMatter = await db.matter.findFirst({
-      where: { tenantId: session.user.tenantId ?? undefined },
+      where: { tenantId: session.user.tenantId },
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
@@ -106,7 +107,7 @@ export async function POST(
 
       await db.trustTransaction.create({
         data: {
-          tenantId: session.user.tenantId!,
+          tenantId: session.user.tenantId,
           matterId: placeholderMatter.id,
           bankAccountId: accountId,
           type,
@@ -129,7 +130,7 @@ export async function POST(
     });
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       action: "TRUST_DEPOSIT",
       entityType: "BankAccount",

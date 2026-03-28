@@ -5,6 +5,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { isAccountStale } from "@/lib/trust/balance";
 import { z } from "zod";
 import { InvoiceStatus, PaymentMethod } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 
 const updateInvoiceSchema = z.object({
   status: z.nativeEnum(InvoiceStatus).optional(),
@@ -27,6 +28,7 @@ export async function GET(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "BILLING_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -34,7 +36,7 @@ export async function GET(
 
   const { id } = await params;
   const invoice = await db.invoice.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
     include: {
       matter: { select: { id: true, title: true, matterNumber: true, billingType: true } },
       lineItems: { orderBy: { position: "asc" } },
@@ -53,6 +55,7 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "BILLING_WRITE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -60,7 +63,7 @@ export async function PATCH(
 
   const { id } = await params;
   const invoice = await db.invoice.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
   });
   if (!invoice) return Response.json({ error: "Not found" }, { status: 404 });
 
@@ -78,16 +81,15 @@ export async function PATCH(
     }
 
     const { amount, method, reference, paidAt, notes } = parsed.data;
-    const newAmountPaid = Number(invoice.amountPaid) + amount;
-    const newStatus =
-      newAmountPaid >= Number(invoice.totalAmount)
-        ? InvoiceStatus.PAID
-        : InvoiceStatus.PARTIAL;
+    const newAmountPaid = new Decimal(invoice.amountPaid).add(new Decimal(amount));
+    const newStatus = newAmountPaid.gte(new Decimal(invoice.totalAmount))
+      ? InvoiceStatus.PAID
+      : InvoiceStatus.PARTIAL;
 
     const [payment] = await db.$transaction([
       db.payment.create({
         data: {
-          tenantId: session.user.tenantId!,
+          tenantId: session.user.tenantId,
           invoiceId: id,
           amount,
           method,
@@ -104,7 +106,7 @@ export async function PATCH(
     ]);
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       action: "PAYMENT_RECORDED",
       entityType: "Invoice",
@@ -129,7 +131,7 @@ export async function PATCH(
     });
     if (matter?.trustBankAccountId) {
       const trustAccount = await db.bankAccount.findFirst({
-        where: { id: matter.trustBankAccountId, tenantId: session.user.tenantId ?? undefined },
+        where: { id: matter.trustBankAccountId, tenantId: session.user.tenantId },
         select: { lastReconciledAt: true, staleThresholdDays: true },
       });
       if (trustAccount && isAccountStale(trustAccount.lastReconciledAt, trustAccount.staleThresholdDays ?? 7)) {
@@ -147,7 +149,7 @@ export async function PATCH(
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "INVOICE_UPDATED",
     entityType: "Invoice",
@@ -164,6 +166,7 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "INVOICE_DELETE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -171,7 +174,7 @@ export async function DELETE(
 
   const { id } = await params;
   const invoice = await db.invoice.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
   });
   if (!invoice) return Response.json({ error: "Not found" }, { status: 404 });
 
@@ -182,15 +185,19 @@ export async function DELETE(
     );
   }
 
-  await db.invoice.delete({ where: { id } });
+  // Soft delete: set status to VOID instead of hard deleting compliance-sensitive data
+  await db.invoice.update({
+    where: { id },
+    data: { status: "VOID" },
+  });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
-    action: "INVOICE_DELETED",
+    action: "INVOICE_VOIDED",
     entityType: "Invoice",
     entityId: id,
-    description: `Invoice ${invoice.invoiceNumber} deleted`,
+    description: `Invoice ${invoice.invoiceNumber} voided (soft-deleted)`,
   });
 
   return new Response(null, { status: 204 });

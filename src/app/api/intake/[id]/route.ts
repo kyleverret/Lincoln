@@ -17,11 +17,11 @@ const updateSchema = z.object({
 export async function GET(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!hasPermission(session.user.role, "CLIENT_CREATE")) {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   });
 
   if (!intake) {
-    return NextResponse.json({ message: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const tenant = await db.tenant.findUnique({
@@ -56,18 +56,18 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!hasPermission(session.user.role, "CLIENT_CREATE")) {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ message: "Validation failed" }, { status: 400 });
+    return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
 
   const intake = await db.intakeForm.findFirst({
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 
   if (!intake) {
-    return NextResponse.json({ message: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const updated = await db.intakeForm.update({

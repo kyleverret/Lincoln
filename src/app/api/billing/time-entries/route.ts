@@ -17,6 +17,7 @@ const createTimeEntrySchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "TIMEENTRY_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
   try {
     const entries = await db.timeEntry.findMany({
       where: {
-        tenantId: session.user.tenantId ?? undefined,
+        tenantId: session.user.tenantId,
         ...(canReadAll ? {} : { userId: session.user.id }),
         ...(matterId ? { matterId } : {}),
         ...(unbilledOnly ? { isBilled: false, isBillable: true } : {}),
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "TIMEENTRY_CREATE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -71,13 +73,13 @@ export async function POST(req: Request) {
   try {
     // Validate matter belongs to tenant
     const matter = await db.matter.findFirst({
-      where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
+      where: { id: matterId, tenantId: session.user.tenantId },
     });
     if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
 
     const entry = await db.timeEntry.create({
       data: {
-        tenantId: session.user.tenantId!,
+        tenantId: session.user.tenantId,
         matterId,
         userId: session.user.id,
         date: new Date(date),
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     });
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       matterId,
       action: "TIME_ENTRY_CREATED",

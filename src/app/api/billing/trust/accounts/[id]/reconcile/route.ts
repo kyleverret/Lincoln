@@ -11,13 +11,14 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const account = await db.bankAccount.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
   });
   if (!account) return Response.json({ error: "Not found" }, { status: 404 });
 
@@ -27,7 +28,7 @@ export async function POST(
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "TRUST_RECONCILED",
     entityType: "BankAccount",
