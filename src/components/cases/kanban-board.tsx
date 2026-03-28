@@ -4,6 +4,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragStartEvent,
@@ -28,10 +29,10 @@ import {
   Plus,
   AlertCircle,
   Calendar,
-  GripVertical,
   Users,
   X,
   Check,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -46,6 +47,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -441,6 +443,99 @@ function KanbanColumn({
 }
 
 // ---------------------------------------------------------------------------
+// Mobile card (no drag — uses "Move to" dropdown instead)
+// ---------------------------------------------------------------------------
+
+function MobileCard({
+  card,
+  columns,
+  currentColumnId,
+  onMove,
+}: {
+  card: KanbanCardData;
+  columns: KanbanColumnData[];
+  currentColumnId: string;
+  onMove: (cardId: string, targetColumnId: string) => Promise<void>;
+}) {
+  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const isUrgent = card.priority === "URGENT";
+  const otherColumns = columns.filter((c) => c.id !== currentColumnId);
+
+  return (
+    <Card className={cn("p-3", isUrgent && "border-l-2 border-l-red-500")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/cases/${card.matterId}`}
+            className="text-sm font-medium leading-tight hover:underline line-clamp-2"
+          >
+            {card.title}
+          </Link>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {card.matterNumber}
+          </p>
+        </div>
+        {/* Move to dropdown */}
+        {otherColumns.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 px-2 shrink-0">
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span className="sr-only">Move card</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                Move to
+              </div>
+              <DropdownMenuSeparator />
+              {otherColumns.map((col) => (
+                <DropdownMenuItem
+                  key={col.id}
+                  onClick={() => onMove(card.id, col.id)}
+                >
+                  <span
+                    className="mr-2 h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: col.color }}
+                  />
+                  {col.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {card.clientName && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            {card.clientName}
+          </span>
+        )}
+        {card.dueDate && (
+          <span
+            className={cn(
+              "text-xs flex items-center gap-1",
+              isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"
+            )}
+          >
+            <Calendar className="h-3 w-3" />
+            {formatDate(card.dueDate)}
+          </span>
+        )}
+        <Badge
+          className={PRIORITY_COLORS[card.priority as keyof typeof PRIORITY_COLORS]}
+          variant="outline"
+        >
+          {PRIORITY_LABELS[card.priority as keyof typeof PRIORITY_LABELS]}
+        </Badge>
+      </div>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Board
 // ---------------------------------------------------------------------------
 
@@ -458,12 +553,29 @@ export function KanbanBoard({
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnColor, setNewColumnColor] = useState(COLUMN_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileColumnId, setActiveMobileColumnId] = useState<string>("");
   const addColumnInputRef = useRef<HTMLInputElement>(null);
 
   // Sync columns when initialColumns changes (e.g. after router.refresh())
   useEffect(() => {
     setColumns(initialColumns);
   }, [initialColumns]);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Set default active mobile column when columns load
+  useEffect(() => {
+    if (columns.length > 0 && !activeMobileColumnId) {
+      setActiveMobileColumnId(columns[0].id);
+    }
+  }, [columns, activeMobileColumnId]);
 
   useEffect(() => {
     if (showAddColumn && addColumnInputRef.current) {
@@ -472,7 +584,8 @@ export function KanbanBoard({
   }, [showAddColumn]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   const findColumnByCardId = useCallback(
@@ -575,6 +688,129 @@ export function KanbanBoard({
     }
   };
 
+  // Mobile: move a card to a different column via dropdown
+  const handleMobileCardMove = async (cardId: string, targetColumnId: string) => {
+    const sourceColumn = columns.find((c) => c.cards.some((card) => card.id === cardId));
+    if (!sourceColumn || sourceColumn.id === targetColumnId) return;
+    const targetColumn = columns.find((c) => c.id === targetColumnId);
+    if (!targetColumn) return;
+    const newPosition = targetColumn.cards.length;
+    // Optimistic update
+    setColumns((prev) => {
+      const card = prev.find((c) => c.id === sourceColumn.id)!.cards.find((c) => c.id === cardId)!;
+      return prev.map((col) => {
+        if (col.id === sourceColumn.id) return { ...col, cards: col.cards.filter((c) => c.id !== cardId) };
+        if (col.id === targetColumnId) return { ...col, cards: [...col.cards, card] };
+        return col;
+      });
+    });
+    try {
+      await onCardMove(cardId, sourceColumn.id, targetColumnId, newPosition);
+    } catch {
+      setColumns(initialColumns);
+    }
+  };
+
+  // ── Mobile view ──────────────────────────────────────────────────────────
+  if (isMobile) {
+    const activeMobileColumn = columns.find((c) => c.id === activeMobileColumnId) ?? columns[0];
+    return (
+      <div className="flex flex-col h-full">
+        {/* Column tab strip */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+          {columns.map((col) => (
+            <button
+              key={col.id}
+              onClick={() => setActiveMobileColumnId(col.id)}
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                activeMobileColumnId === col.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: col.color }}
+              />
+              {col.name}
+              <span className="text-xs opacity-75">{col.cards.length}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Active column cards */}
+        {activeMobileColumn && (
+          <div className="flex-1 overflow-y-auto space-y-3">
+            {activeMobileColumn.cards.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                No cards in this column
+              </div>
+            ) : (
+              activeMobileColumn.cards.map((card) => (
+                <MobileCard
+                  key={card.id}
+                  card={card}
+                  columns={columns}
+                  currentColumnId={activeMobileColumn.id}
+                  onMove={handleMobileCardMove}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Add column (mobile) */}
+        {canManage && (
+          <div className="mt-4 pt-4 border-t">
+            {showAddColumn ? (
+              <div className="space-y-2">
+                <input
+                  ref={addColumnInputRef}
+                  type="text"
+                  value={newColumnName}
+                  onChange={(e) => setNewColumnName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddColumn();
+                    if (e.key === "Escape") { setShowAddColumn(false); setNewColumnName(""); }
+                  }}
+                  className="w-full rounded border px-3 py-2 text-sm bg-background"
+                  placeholder="New column name"
+                />
+                <div className="flex gap-1 flex-wrap">
+                  {COLUMN_COLORS.map((c) => (
+                    <button key={c} type="button" onClick={() => setNewColumnColor(c)}
+                      className={cn("h-6 w-6 rounded-full border-2 transition-transform",
+                        newColumnColor === c ? "border-foreground scale-110" : "border-transparent")}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleAddColumn} disabled={isCreating || !newColumnName.trim()}>
+                    {isCreating ? "Adding..." : "Add column"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowAddColumn(false); setNewColumnName(""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddColumn(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add column
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Desktop view ─────────────────────────────────────────────────────────
   return (
     <DndContext
       sensors={sensors}
