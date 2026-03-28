@@ -19,11 +19,11 @@ import {
   Gavel,
   CheckSquare,
   Clock,
-  Trash2,
+
 } from "lucide-react";
 import {
   formatDate,
-  formatDateTime,
+
   STATUS_COLORS,
   STATUS_LABELS,
   PRIORITY_COLORS,
@@ -36,7 +36,8 @@ import { audit } from "@/lib/audit";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { decryptField } from "@/lib/encryption";
-import { AddNoteForm } from "@/components/cases/add-note-form";
+import { NotesSection, type NoteItem } from "@/components/cases/notes-section";
+import { DocumentVisibilityToggle } from "@/components/cases/document-visibility-toggle";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { LogTimeSection } from "@/components/billing/log-time-section";
 import { hasPermission } from "@/lib/permissions";
@@ -78,7 +79,7 @@ export default async function CaseDetailPage({ params }: PageProps) {
       documents: {
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 50,
         include: {
           uploadedBy: {
             select: { firstName: true, lastName: true },
@@ -87,7 +88,10 @@ export default async function CaseDetailPage({ params }: PageProps) {
       },
       notes: {
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 50,
+        include: {
+          author: { select: { id: true, firstName: true, lastName: true } },
+        },
       },
       _count: { select: { documents: true, notes: true, messages: true } },
     },
@@ -130,6 +134,9 @@ export default async function CaseDetailPage({ params }: PageProps) {
       matter.assignments.some((a) => a.userId === userId));
 
   const canBilling = hasPermission(role, "BILLING_READ");
+  const isAdmin =
+    role === UserRole.SUPER_ADMIN || role === UserRole.FIRM_ADMIN;
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
   // Fetch tasks and time entries for this matter
   const [tasks, timeEntries] = await Promise.all([
@@ -438,11 +445,20 @@ export default async function CaseDetailPage({ params }: PageProps) {
                             </p>
                           </div>
                         </div>
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/api/documents/${doc.id}/download`}>
-                            Download
-                          </Link>
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {canEdit && (
+                            <DocumentVisibilityToggle
+                              documentId={doc.id}
+                              displayName={doc.displayName}
+                              allowClientView={doc.allowClientView}
+                            />
+                          )}
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/api/documents/${doc.id}/download`}>
+                              Download
+                            </Link>
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -541,47 +557,38 @@ export default async function CaseDetailPage({ params }: PageProps) {
                 <CardTitle className="text-base">Case Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                {canEdit && <AddNoteForm matterId={matter.id} />}
-                {matter.notes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No notes yet.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {matter.notes.map((note) => {
-                      let content = "[encrypted]";
-                      if (tenant?.encryptionKeyId) {
-                        try {
-                          content = decryptField(
-                            note.encContent,
-                            tenant.encryptionKeyId
-                          );
-                        } catch {
-                          content = "[decryption error]";
-                        }
+                {(() => {
+                  const noteItems: NoteItem[] = matter.notes.map((note) => {
+                    let content = "[encrypted]";
+                    if (tenant?.encryptionKeyId) {
+                      try {
+                        content = decryptField(note.encContent, tenant.encryptionKeyId);
+                      } catch {
+                        content = "[decryption error]";
                       }
-                      return (
-                        <div
-                          key={note.id}
-                          className="rounded-md border p-3 text-sm"
-                        >
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {formatDateTime(note.createdAt)}
-                            {note.isInternal && (
-                              <Badge
-                                variant="outline"
-                                className="ml-2 text-xs"
-                              >
-                                Internal
-                              </Badge>
-                            )}
-                          </p>
-                          <p className="whitespace-pre-wrap">{content}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                    }
+                    const withinWindow =
+                      Date.now() - note.createdAt.getTime() < TWENTY_FOUR_HOURS_MS;
+                    const isNoteAuthor = note.authorId === userId;
+                    return {
+                      id: note.id,
+                      content,
+                      isInternal: note.isInternal,
+                      createdAt: note.createdAt.toISOString(),
+                      authorId: note.authorId,
+                      authorName: `${note.author.firstName} ${note.author.lastName}`,
+                      canEdit: isAdmin || (isNoteAuthor && withinWindow),
+                      canDelete: isAdmin || (isNoteAuthor && withinWindow),
+                    };
+                  });
+                  return (
+                    <NotesSection
+                      matterId={matter.id}
+                      notes={noteItems}
+                      canAddNote={canEdit}
+                    />
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>

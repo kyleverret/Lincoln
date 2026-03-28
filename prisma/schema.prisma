@@ -307,6 +307,7 @@ model User {
   requestedTrustTxns    TrustTransaction[] @relation("TrustRequestedBy")
   approvedTrustTxns     TrustTransaction[] @relation("TrustApprovedBy")
   timeEntries           TimeEntry[]
+  matterNotes           MatterNote[]
 
   @@map("users")
 }
@@ -493,6 +494,7 @@ model MatterNote {
   updatedAt  DateTime @updatedAt
 
   matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id])
 
   @@index([matterId])
   @@map("matter_notes")

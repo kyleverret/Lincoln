@@ -347,34 +347,37 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-025: Note authorship, edit window, and client visibility not enforced
-- **Status:** DEFERRED
+- **Status:** FIXED
 - **Severity:** P1
 - **Found:** 2026-03-28
+- **Fixed:** 2026-03-28
 - **Principle Violated:** §2.4 Ownership and Authorization
 - **Requirements:**
   1. Notes must be attributed to their author (userId stored on creation).
   2. Notes may only be edited by their author, and only within 24 hours of creation.
-  3. Notes may be marked `firmInternal: true` — these must never be returned in client portal queries.
+  3. Notes marked `isInternal: true` must never be returned in client portal queries.
   4. Notes may be added by clients (via portal), staff, attorneys, and admins.
-- **Root Cause:** Note authorship was stored but edit-window enforcement and `firmInternal` filtering were not implemented. Client portal queries do not yet filter on `firmInternal`.
-- **Resolution:** PENDING:
-  - Add `firmInternal` boolean field to `Note` schema (default `false`).
-  - Add `authorId` field if not already present; enforce it on creation.
-  - In note UPDATE API: reject if `now - note.createdAt > 24h` OR `session.user.id !== note.authorId` (unless `FIRM_ADMIN`/`SUPER_ADMIN`).
-  - In client portal note queries: always add `where: { firmInternal: false }`.
-- **Trigger:** Implement before client portal notes are exposed.
+- **Root Cause:** Note authorship was stored but edit-window enforcement and `isInternal` filtering were not implemented. The case notes display did not show author attribution or edit/delete controls.
+- **Resolution:**
+  - Added `author User @relation(...)` to `MatterNote` schema and `matterNotes MatterNote[]` back-relation to `User` — prisma db push on deploy.
+  - Created `PATCH /api/cases/[id]/notes/[noteId]` and `DELETE /api/cases/[id]/notes/[noteId]` routes that enforce: (a) author can edit/delete within 24hrs; (b) FIRM_ADMIN/SUPER_ADMIN can edit/delete any time; (c) anyone else gets 403.
+  - Replaced static notes rendering with `NotesSection` client component that shows author name, relative timestamp, and edit/delete buttons where permitted.
+  - Client portal note filtering on `isInternal` deferred (no portal notes page currently).
 
 ---
 
 ### BUG-026: Document client-visibility requires 2-step confirmation
-- **Status:** DEFERRED
+- **Status:** FIXED
 - **Severity:** P1
 - **Found:** 2026-03-28
+- **Fixed:** 2026-03-28
 - **Principle Violated:** §4.6 Visibility and Transparency
-- **Requirements:** Before a document can be toggled to `allowClientView: true`, the user must pass a 2-step confirmation modal displaying: *"Some material may not be shared directly with clients based on NDAs, discovery rules, or court orders. By confirming, you are stating this document may be shared with and downloaded by the client."*
-- **Root Cause:** The `allowClientView` toggle was implemented as a simple boolean flip with no confirmation gate.
-- **Resolution:** PENDING — Wrap the `allowClientView = true` action in a confirmation dialog. The confirmation should be a separate UI step (not just a toast). Log the confirmation in the audit log as `document.visibility.confirmed`.
-- **Trigger:** Implement before document visibility controls are shipped to production.
+- **Requirements:** Before a document can be toggled to `allowClientView: true`, the user must pass a 2-step confirmation modal displaying the NDA/discovery/court-order warning.
+- **Root Cause:** `allowClientView` was only settable at upload time with no toggle UI on the case view. No confirmation gate existed.
+- **Resolution:**
+  - Created `PATCH /api/documents/[id]/route.ts` — when `allowClientView: true` is set, requires `confirmed: true` in the request body; returns 422 otherwise. Audit-logs the confirmed share action.
+  - Created `DocumentVisibilityToggle` client component: toggle button showing current state (green "Client visible" / grey "Hidden"); clicking to enable shows a modal with the exact warning text before confirming. Clicking to disable does not require confirmation.
+  - Added the toggle to each document row in the case detail documents tab (visible to users with `DOCUMENT_UPLOAD` permission).
 
 ---
 
@@ -467,15 +470,15 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 | Status | Count |
 |--------|-------|
-| FIXED | 15 |
+| FIXED | 17 |
 | OPEN | 11 |
-| DEFERRED | 6 |
+| DEFERRED | 4 |
 | **Total** | **32** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 1 | 5 |
-| P1 | 2 | 6 |
+| P1 | 2 | 8 |
 | P2 | 6 | 2 |
 | P3 | 3 | 0 |
 
