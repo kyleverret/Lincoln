@@ -90,7 +90,7 @@ export default function NewClientPage() {
         </Button>
       </header>
 
-      <div className="p-6 max-w-3xl">
+      <div className="p-4 sm:p-6 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">

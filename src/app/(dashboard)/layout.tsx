@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { Sidebar } from "@/components/layout/sidebar";
+import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { db } from "@/lib/db";
 
 export default async function DashboardLayout({
@@ -39,13 +40,15 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar user={user} firmName={firmName} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-slate-50/50">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar user={user} firmName={firmName} />
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+          <main className="flex-1 overflow-y-auto bg-slate-50/50">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

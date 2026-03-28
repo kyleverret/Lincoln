@@ -223,7 +223,7 @@ export default function NewCasePage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">New Case</h1>
         <Button variant="outline" onClick={() => router.push("/cases")}>

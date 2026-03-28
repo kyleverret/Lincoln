@@ -94,7 +94,7 @@ export default async function AdminPage() {
         }
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Firm overview */}
         {tenant && (
           <Card>
@@ -196,15 +196,15 @@ export default async function AdminPage() {
                     key={tu.id}
                     className="flex items-center justify-between p-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                         {tu.user.firstName[0]}{tu.user.lastName[0]}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
                           {tu.user.firstName} {tu.user.lastName}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground truncate max-w-[150px] sm:max-w-none">
                           {tu.user.email}
                         </p>
                       </div>

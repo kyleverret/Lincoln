@@ -52,7 +52,7 @@ export default async function SettingsPage() {
     <>
       <Header title="Settings" role={role} />
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {/* Firm Settings */}
           {canEditFirm && (

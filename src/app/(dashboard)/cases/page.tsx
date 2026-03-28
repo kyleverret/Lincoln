@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import {
+  cn,
   formatDate,
   STATUS_COLORS,
   STATUS_LABELS,
@@ -111,9 +112,9 @@ export default async function CasesPage({ searchParams }: PageProps) {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Filters */}
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-col sm:flex-row flex-wrap gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <form>
@@ -122,7 +123,7 @@ export default async function CasesPage({ searchParams }: PageProps) {
                 name="q"
                 defaultValue={params.q}
                 placeholder="Search cases..."
-                className="h-9 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-64"
+                className="h-9 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-64"
               />
             </form>
           </div>
@@ -227,7 +228,7 @@ export default async function CasesPage({ searchParams }: PageProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {matter.dueDate && (
                         <div className="text-right hidden sm:block">
                           <p className="text-xs text-muted-foreground">Due</p>
@@ -242,11 +243,12 @@ export default async function CasesPage({ searchParams }: PageProps) {
                         </div>
                       )}
                       <Badge
-                        className={
+                        className={cn(
                           PRIORITY_COLORS[
                             matter.priority as keyof typeof PRIORITY_COLORS
-                          ]
-                        }
+                          ],
+                          "hidden sm:inline-flex"
+                        )}
                         variant="outline"
                       >
                         {
