@@ -2,7 +2,7 @@
 
 Running log of all bugs, fixes, and architectural violations. Each entry includes **why** the error was coded so we learn from it and prevent recurrence.
 
-**Last updated:** 2026-03-27
+**Last updated:** 2026-03-28
 
 ---
 
@@ -332,21 +332,151 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+---
+
+### BUG-024: Task added in case view overwrites existing task instead of creating new one
+- **Status:** OPEN
+- **Severity:** P1
+- **Found:** 2026-03-28
+- **Symptoms:** When adding a task from the case detail view, an existing task for that case is modified rather than a new task being created.
+- **Principle Violated:** §1.5 Immutable Operations (mutations must target explicit IDs, not implicit first-match)
+- **Root Cause:** PENDING INVESTIGATION — likely the POST handler for task creation is performing an upsert or finding an existing card and updating it instead of always inserting a new record.
+- **Resolution:** PENDING — Verify the task creation API always uses `db.kanbanCard.create()` and never `upsert()` or `update()` for the create path. The UI should POST to a create endpoint, not a general-purpose save endpoint.
+
+---
+
+### BUG-025: Note authorship, edit window, and client visibility not enforced
+- **Status:** DEFERRED
+- **Severity:** P1
+- **Found:** 2026-03-28
+- **Principle Violated:** §2.4 Ownership and Authorization
+- **Requirements:**
+  1. Notes must be attributed to their author (userId stored on creation).
+  2. Notes may only be edited by their author, and only within 24 hours of creation.
+  3. Notes may be marked `firmInternal: true` — these must never be returned in client portal queries.
+  4. Notes may be added by clients (via portal), staff, attorneys, and admins.
+- **Root Cause:** Note authorship was stored but edit-window enforcement and `firmInternal` filtering were not implemented. Client portal queries do not yet filter on `firmInternal`.
+- **Resolution:** PENDING:
+  - Add `firmInternal` boolean field to `Note` schema (default `false`).
+  - Add `authorId` field if not already present; enforce it on creation.
+  - In note UPDATE API: reject if `now - note.createdAt > 24h` OR `session.user.id !== note.authorId` (unless `FIRM_ADMIN`/`SUPER_ADMIN`).
+  - In client portal note queries: always add `where: { firmInternal: false }`.
+- **Trigger:** Implement before client portal notes are exposed.
+
+---
+
+### BUG-026: Document client-visibility requires 2-step confirmation
+- **Status:** DEFERRED
+- **Severity:** P1
+- **Found:** 2026-03-28
+- **Principle Violated:** §4.6 Visibility and Transparency
+- **Requirements:** Before a document can be toggled to `allowClientView: true`, the user must pass a 2-step confirmation modal displaying: *"Some material may not be shared directly with clients based on NDAs, discovery rules, or court orders. By confirming, you are stating this document may be shared with and downloaded by the client."*
+- **Root Cause:** The `allowClientView` toggle was implemented as a simple boolean flip with no confirmation gate.
+- **Resolution:** PENDING — Wrap the `allowClientView = true` action in a confirmation dialog. The confirmation should be a separate UI step (not just a toast). Log the confirmation in the audit log as `document.visibility.confirmed`.
+- **Trigger:** Implement before document visibility controls are shipped to production.
+
+---
+
+### BUG-027: Project stage not enforced by permission or visible in case screen
+- **Status:** DEFERRED
+- **Severity:** P2
+- **Found:** 2026-03-28
+- **Requirements:**
+  1. Project stage (matter status / kanban column) must only be editable by assigned staff or firm admins. Unassigned users may view but not change it.
+  2. The current project stage must be displayed on the case detail screen.
+  3. Users with permission may edit the project stage directly from the case detail screen (no need to navigate to the kanban board).
+- **Root Cause:** Stage editing has no permission check beyond general matter-write access. The case detail page shows status badges but does not surface the kanban column (project stage) as an editable field.
+- **Resolution:** PENDING:
+  - Add `STAGE_EDIT` permission (assigned staff + firm admins only).
+  - Display current kanban column on case detail page.
+  - Add inline stage-change control on case detail, guarded by `STAGE_EDIT` permission.
+- **Trigger:** Implement in same sprint as task PM work (BUG-028).
+
+---
+
+### BUG-028: Action Items must be refactored to Tasks with Kanban + list views, case integration, and separate Kanban topics
+- **Status:** DEFERRED
+- **Severity:** P2
+- **Found:** 2026-03-28
+- **Requirements:**
+  1. Rename "Action Items" to "Tasks" throughout the UI and data model.
+  2. Tasks must support both a **Kanban view** and a **list view** (toggle between them).
+  3. Task Kanban column topics are a **distinct dataset** from the Case Project Management kanban columns — they are separate boards with separate columns.
+  4. Tasks per case must be visible on the case detail screen.
+  5. Tasks can be created from the case detail view (linked to that case).
+  6. Fix BUG-024 (task creation overwrites existing task) as part of this work.
+- **Root Cause:** Action Items was built as a flat list backed by `KanbanCard` due dates. It was never intended to be a full task management system with its own kanban board. The data model needs to be separated or a new `Task` / `TaskBoard` model introduced.
+- **Resolution:** PENDING — Design review required. Options:
+  - Option A: Create a `TaskBoard` and `TaskColumn` model separate from `KanbanBoard`/`KanbanColumn`.
+  - Option B: Add a `boardType` enum (`CASE_STAGE` vs `TASK`) to distinguish boards.
+  - Rename `action-items` route to `tasks`.
+- **Trigger:** Implement after BUG-024 (task creation bug) is fixed.
+
+---
+
+### BUG-029: Billing items not addable from case view or task view
+- **Status:** DEFERRED
+- **Severity:** P2
+- **Found:** 2026-03-28
+- **Requirements:**
+  1. Billing time entries can be added from the case detail view (pre-associated to the case).
+  2. Billing time entries can be added from the billing view (existing — verify works).
+  3. Billing time entries can be added from the task view and associated to a specific task.
+  4. Billing items can be associated to a document (deferred until document work is complete — see BUG-026).
+- **Root Cause:** Billing entry creation exists only on the billing page. No quick-add affordance exists on case or task views. Task-billing association requires a `taskId` foreign key on `TimeEntry` that does not yet exist.
+- **Resolution:** PENDING:
+  - Add "Add Time Entry" quick-action to the case detail view (pre-fill `matterId`).
+  - Add `taskId` nullable FK to `TimeEntry` model (schema migration required).
+  - Add "Log Time" action to task detail / task card.
+  - Document association deferred until BUG-026 is resolved.
+- **Trigger:** Implement after Task PM refactor (BUG-028) is complete.
+
+---
+
+### BUG-030: Billing rates not configurable per attorney, staff, or matter type
+- **Status:** DEFERRED
+- **Severity:** P2
+- **Found:** 2026-03-28
+- **Requirements:** Firm admins must be able to set billing rates:
+  - Per attorney / staff member (default hourly rate for that user)
+  - Per matter type / practice area (rate that overrides user default for that area)
+  - Matter-level rate override (already partially supported via `Matter.hourlyRate`)
+- **Root Cause:** The current billing rate is stored only at the matter level (`Matter.hourlyRate`). There is no user-level or practice-area-level rate configuration.
+- **Resolution:** PENDING:
+  - Add `defaultHourlyRate` to `TenantUser` or `User` model.
+  - Add `hourlyRate` to `PracticeArea` model.
+  - Rate resolution order: matter-level override → practice area rate → user default rate.
+  - Expose rate configuration in firm admin settings.
+- **Trigger:** Implement in same sprint as billing improvements.
+
+---
+
+### BUG-031: Permissions matrix documentation does not exist
+- **Status:** DEFERRED
+- **Severity:** P3
+- **Found:** 2026-03-28
+- **Requirements:** A human-readable permissions matrix must be created and kept in sync with `src/lib/permissions.ts`. It should show every permission string, which roles have it, and what UI features it gates.
+- **Root Cause:** Permissions are defined in code (`permissions.ts`) but there is no external reference document. Role/feature access is difficult to audit without reading code.
+- **Resolution:** PENDING — Create `PERMISSIONS.md` at the project root. Auto-generation from `permissions.ts` preferred; manual document acceptable for now.
+- **Trigger:** Create before next permission audit or new role addition.
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
 | FIXED | 12 |
-| OPEN | 11 |
-| DEFERRED | 2 |
-| **Total** | **25** |
+| OPEN | 12 |
+| DEFERRED | 8 |
+| **Total** | **32** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 1 | 5 |
-| P1 | 3 | 4 |
-| P2 | 5 | 1 |
-| P3 | 2 | 0 |
+| P1 | 4 | 4 |
+| P2 | 6 | 1 |
+| P3 | 3 | 0 |
 
 ---
 
