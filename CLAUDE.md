@@ -14,11 +14,16 @@ This file gives Claude Code the project-specific context needed to work safely a
 | **[BUGS.md](./BUGS.md)** | Running bug tracker with root cause analysis | After every bug fix — log the bug, root cause, and resolution |
 | **[REQUIREMENTS.md](./REQUIREMENTS.md)** | Product requirements and feature audit | When building new features — check against requirements |
 
-**Workflow:**
-1. Before writing code → check ARCHITECTURE.md principles apply
-2. After fixing a bug → add entry to BUGS.md with root cause analysis
-3. Before committing → run through ARCHITECTURE.md §6 Compliance Checklist
-4. When a new bug is found → add to BUGS.md immediately, even before fixing
+**Workflow — every code change follows this sequence:**
+1. **Before writing code** → check ARCHITECTURE.md principles apply
+2. **While writing code** → if making an assumption, document it (code comment + ARCHITECTURE.md §6.3 Assumption Register). If deferring something, log it (ARCHITECTURE.md §6.4 Deferral Register + BUGS.md as `FLAGGED`/`DEFERRED`)
+3. **After writing code, before committing** → run the full Pre-Commit Review Protocol (ARCHITECTURE.md §6):
+   - §6.1 Compliance Checklist (11 checks)
+   - §6.2 Risk Flag Review (scan diff for all 5 root cause patterns)
+   - Flag anything that matches a known risk pattern, even if it's not a bug yet
+4. **After fixing a bug** → add entry to BUGS.md with root cause analysis explaining **why** it was coded wrong
+5. **When a new bug or risk is found** → add to BUGS.md immediately (`OPEN` or `FLAGGED`), even before fixing
+6. **Commit message** → follow ARCHITECTURE.md §6.5 protocol (include ASSUMPTIONS, DEFERRALS, FLAGS sections as applicable)
 
 ---
 

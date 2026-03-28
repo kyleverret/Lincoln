@@ -412,9 +412,11 @@ Next.js middleware runs in Edge Runtime. Files imported by middleware must not u
 
 ---
 
-## 6. Compliance Checklist
+## 6. Pre-Commit Review Protocol
 
-Before any code is merged:
+Every code change — before committing — must pass the compliance checklist AND the risk flag review. This is not optional. Skipping this protocol is how bugs get shipped.
+
+### 6.1 Compliance Checklist
 
 - [ ] All database queries filter by `tenantId`
 - [ ] All mutations check `hasPermission()`
@@ -427,3 +429,116 @@ Before any code is merged:
 - [ ] No `?? undefined` on `tenantId` in queries
 - [ ] TypeScript compiles without errors
 - [ ] Build succeeds (`npm run build`)
+
+### 6.2 Risk Flag Review — Root Cause Pattern Scan
+
+Before committing, explicitly scan the diff for these known root cause patterns. If any are present, **flag them in the commit message** and **log them in BUGS.md** (even if not yet a bug — log as `STATUS: FLAGGED`).
+
+#### Pattern 1: Implicit Behavior Assumptions
+Scan for code that assumes a library, runtime, or data format will behave a certain way without explicit validation.
+
+**Red flags:**
+- `?? undefined`, `?? null`, `|| ""` on security-critical values (tenantId, userId, role)
+- `split()`, `parseInt()`, `JSON.parse()` without validating the result
+- Accessing nested properties without null checks (e.g., `user.tenant.slug` without verifying `tenant` exists)
+- Importing modules without confirming runtime compatibility (Edge vs. Node.js)
+- Using `as` type assertions to bypass TypeScript safety
+
+**Action:** Add explicit validation. If assumption is intentional, document it with a code comment: `// ASSUMPTION: [what and why]`
+
+#### Pattern 2: Write Path / Read Path Asymmetry
+When implementing a security control on writes (creation, upload, mutation), verify the corresponding control exists on reads (retrieval, download, access).
+
+**Red flags:**
+- Adding encryption on a POST handler → verify decryption + integrity check on GET handler
+- Adding audit logging on create → verify audit logging on read
+- Adding validation on input → verify validation/sanitization on output
+- Adding a permission check on mutation → verify permission check on access
+
+**Action:** For every write-path control added, add a `// READ-PATH: [corresponding read handler and what was verified]` comment.
+
+#### Pattern 3: Convention vs. Enforcement
+When relying on a team practice or naming convention, ask: "What prevents this from being violated?"
+
+**Red flags:**
+- Comments like "don't delete this" or "always call X before Y" without enforcement
+- Patterns that require remembering to do something (e.g., "always add tenantId to queries")
+- Naming conventions not backed by linter rules or schema constraints
+- Security controls that depend on developers following a pattern manually
+
+**Action:** If the convention matters for security or compliance, enforce it in code (middleware, Prisma hooks, linter rules, Zod schemas). If enforcement isn't feasible now, log as `FLAGGED` in BUGS.md.
+
+#### Pattern 4: MVP Deferrals
+When intentionally skipping a feature, validation, or edge case for speed, it must be tracked.
+
+**Red flags:**
+- `// TODO`, `// FIXME`, `// HACK` comments
+- Hardcoded limits (`take: 100`) without pagination
+- Missing error boundaries or loading states
+- Features referenced in UI but not yet implemented
+- Rate limiting, caching, or performance optimization deferred
+
+**Action:** Every deferral gets a BUGS.md entry with `STATUS: DEFERRED` and a **trigger condition** (when must this be addressed — e.g., "when any tenant exceeds 200 matters").
+
+#### Pattern 5: Reference Staleness
+When renaming, moving, or restructuring anything, verify all references are updated.
+
+**Red flags:**
+- Renaming a file or route → grep for all hardcoded references to the old path
+- Changing an API response shape → verify all frontend consumers handle the new shape
+- Moving a component → verify all imports are updated
+- Changing an env var name → verify Dockerfile, app spec, and all code references
+
+**Action:** After any rename/move, run a project-wide search for the old name. Document in commit message: `Verified: no stale references to [old name]`.
+
+### 6.3 Assumption Register
+
+When code makes a deliberate assumption, it must be documented both in the code and here. This register is the single source of truth for "things we chose to assume rather than validate."
+
+| ID | Assumption | Location | Risk if Wrong | Trigger to Revisit |
+|----|-----------|----------|---------------|-------------------|
+| A-001 | Single tenant per session — users don't switch tenants mid-session | `auth.ts` authorize() | Wrong tenant context for operations | Multi-tenant user feature request |
+| A-002 | JWT payload fits within cookie size limits | `auth.ts` callbacks.jwt | Login failure, silent session loss | Adding more fields to JWT |
+| A-003 | Prisma auto-indexes @relation foreign keys | `schema.prisma` | Slow queries at scale | Any list endpoint exceeding 200ms |
+| A-004 | File uploads fit in container memory for encryption | `storage.ts` storeDocument | OOM crash on large files | File uploads > 50MB |
+| A-005 | bcrypt.compare timing is sufficient against timing attacks | `auth.ts` authorize() | Credential enumeration | Security audit |
+| A-006 | System clock is accurate for JWT expiry and lockout timers | `auth.ts`, middleware | Auth bypass or permanent lockout | Multi-region deployment |
+| A-007 | `decimal.js` precision matches PostgreSQL `Decimal(10,2)` | Billing routes | Rounding errors in invoices | Invoice amounts > $99,999.99 |
+| A-008 | Audit log volume fits in single PostgreSQL table | `audit.ts` | Slow queries, storage exhaustion | > 1M audit entries |
+
+### 6.4 Deferral Register
+
+Active deferrals — features or controls intentionally postponed with defined triggers.
+
+| ID | What's Deferred | Why | Severity if Needed | Trigger to Implement |
+|----|----------------|-----|-------------------|---------------------|
+| D-001 | Cursor-based pagination | Not needed at MVP scale | P2 | Any list endpoint returns > 100 records |
+| D-002 | Rate limiting on public endpoints | Low traffic currently | P1 | Public intake form goes live to real users |
+| D-003 | Error boundaries on all pages | Happy-path focus for MVP | P2 | First production user reports a blank page |
+| D-004 | Composite database indexes | Queries fast at current scale | P3 | Any query exceeds 100ms in production |
+| D-005 | S3/Spaces document storage | Using local storage in dev/staging | P1 | Production deployment with persistent storage needed |
+| D-006 | Email notifications for messages | No SMTP configured | P2 | Users request email alerts |
+| D-007 | Virus scanning on file uploads | No scanning service configured | P1 | Production deployment accepting external uploads |
+| D-008 | CSRF protection on form submissions | Next.js provides some built-in protection | P2 | Security audit or penetration test |
+| D-009 | Database connection pooling (PgBouncer) | Single-instance sufficient now | P3 | > 50 concurrent users |
+| D-010 | Automated backup verification | Relying on DO managed backups | P1 | First production data loss concern |
+
+### 6.5 Commit Message Protocol
+
+Every commit message must include applicable flags:
+
+```
+feat/fix/refactor: Short description
+
+[Details of what changed and why]
+
+ASSUMPTIONS: [any new assumptions made — add to §6.3]
+DEFERRALS: [any features/controls deferred — add to §6.4]
+FLAGS: [any risk patterns detected from §6.2 that weren't fully resolved]
+WRITE/READ PARITY: [confirmed/not applicable]
+STALE REFS: [verified no stale references / N/A]
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+```
+
+Omit sections that don't apply (e.g., a pure docs change doesn't need WRITE/READ PARITY). But the review must still happen — omitting a section means "I checked and it doesn't apply," not "I didn't check."

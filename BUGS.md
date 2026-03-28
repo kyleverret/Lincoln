@@ -11,11 +11,22 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 | Field | Meaning |
 |-------|---------|
 | **ID** | Unique bug identifier (BUG-NNN) |
-| **Status** | `OPEN`, `FIXED`, `WONTFIX`, `DEFERRED` |
+| **Status** | `OPEN`, `FIXED`, `WONTFIX`, `DEFERRED`, `FLAGGED` |
 | **Severity** | `P0` (Critical/Security), `P1` (Core Feature), `P2` (Quality), `P3` (Enhancement) |
 | **Principle Violated** | Which ARCHITECTURE.md principle was broken |
+| **Root Cause Category** | Which of the 5 root cause patterns (see Appendix) |
 | **Root Cause** | Why this error was coded in the first place |
 | **Resolution** | How it was fixed (commit hash when available) |
+
+### Status Definitions
+
+| Status | Meaning |
+|--------|---------|
+| `OPEN` | Known bug, not yet fixed |
+| `FIXED` | Bug resolved, root cause documented |
+| `DEFERRED` | Intentionally postponed — has a trigger condition in ARCHITECTURE.md §6.4 |
+| `FLAGGED` | Not yet a bug, but matches a known risk pattern (ARCHITECTURE.md §6.2). Logged proactively during pre-commit review to prevent it from becoming a bug. |
+| `WONTFIX` | Accepted as-is with documented justification |
 
 ---
 
