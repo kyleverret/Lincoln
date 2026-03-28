@@ -35,6 +35,7 @@ export default async function InvoicesPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/login");
 
   if (!hasPermission(session.user.role, "BILLING_READ")) {
     redirect("/dashboard");
@@ -48,7 +49,7 @@ export default async function InvoicesPage({
 
   const invoices = await db.invoice.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {

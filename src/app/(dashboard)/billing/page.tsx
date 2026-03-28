@@ -30,12 +30,13 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
 export default async function BillingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/login");
 
   if (!hasPermission(session.user.role, "BILLING_READ")) {
     redirect("/dashboard");
   }
 
-  const tenantId = session.user.tenantId ?? undefined;
+  const tenantId = session.user.tenantId;
 
   // Dashboard metrics
   const [invoices, unbilledTime, recentPayments] = await Promise.all([
