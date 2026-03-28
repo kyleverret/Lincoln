@@ -55,11 +55,11 @@ export default async function CasesPage({ searchParams }: PageProps) {
   };
 
   if (params.status && Object.values(MatterStatus).includes(params.status as MatterStatus)) {
-    where.status = params.status;
+    where.status = params.status as MatterStatus;
   }
 
   if (params.priority && Object.values(Priority).includes(params.priority as Priority)) {
-    where.priority = params.priority;
+    where.priority = params.priority as Priority;
   }
 
   if (params.q) {
