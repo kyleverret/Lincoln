@@ -178,13 +178,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as Record<string, unknown>;
-        token.firstName = u.firstName;
-        token.lastName = u.lastName;
-        token.role = u.role;
-        token.tenantId = u.tenantId;
-        token.tenantSlug = u.tenantSlug;
-        token.mfaEnabled = u.mfaEnabled;
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        token.firstName = (user as any).firstName;
+        token.lastName = (user as any).lastName;
+        token.role = (user as any).role;
+        token.tenantId = (user as any).tenantId;
+        token.tenantSlug = (user as any).tenantSlug;
+        token.mfaEnabled = (user as any).mfaEnabled;
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
       return token;
     },

@@ -47,8 +47,9 @@ export async function POST(req: Request) {
       language: "en",
     });
     return Response.json({ link_token: data.link_token });
-  } catch (err: any) {
-    console.error("[plaid] link-token error:", err?.response?.data ?? err);
+  } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.error("[plaid] link-token error:", (err as any)?.response?.data ?? err);
     return Response.json({ error: "Failed to create Plaid link token" }, { status: 502 });
   }
 }
