@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DocumentCategory } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
 
   if (params.matterId) where.matterId = params.matterId;
   if (params.clientId) where.clientId = params.clientId;
-  if (params.category) where.category = params.category;
+  if (params.category) where.category = params.category as DocumentCategory;
   if (params.q) {
     where.OR = [
       { displayName: { contains: params.q, mode: "insensitive" } },
