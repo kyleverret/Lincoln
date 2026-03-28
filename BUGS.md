@@ -466,19 +466,36 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+### BUG-032: TypeScript build errors block DO deploy
+- **Status:** FIXED
+- **Severity:** P1
+- **Found:** 2026-03-28
+- **Fixed:** 2026-03-28 (commit `80a0bde`, merged to main `23eeae9`)
+- **Symptoms:** DO App Platform build fails with `BuildJobExitNonZero`. Two TypeScript errors:
+  1. `Invalid module name in augmentation, module 'next-auth/jwt' cannot be found` (`src/lib/auth.ts:231`)
+  2. `Type 'string' is not assignable to type 'DocumentCategory | ...'` (`src/app/(dashboard)/documents/page.tsx:60`)
+- **Principle Violated:** §6.1 CI/CD pipeline green
+- **Root Cause:**
+  1. The `declare module "next-auth/jwt"` augmentation worked in earlier TypeScript versions, but TypeScript 5.9 with `moduleResolution: "bundler"` can no longer resolve `next-auth/jwt` as a module name for augmentation purposes. `next-auth/jwt` re-exports from `@auth/core/jwt` — the augmentation must target the source module.
+  2. The `params.category` search param is typed as `string | undefined`, but `where.category` expects `DocumentCategory` enum or a Prisma filter object. The cast was missing.
+- **Why it was coded this way:** (1) The `next-auth/jwt` augmentation pattern was valid in older TS/module resolution modes and worked during initial development. The issue emerged after a TypeScript version bump. (2) The Prisma enum cast was missed when writing the filter — the developer assumed `string` would be assignable to an enum filter.
+- **Resolution:** (1) Changed `declare module "next-auth/jwt"` to `declare module "@auth/core/jwt"` — the actual source of the JWT interface. (2) Added `as DocumentCategory` cast on the category search param assignment.
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
-| FIXED | 17 |
+| FIXED | 18 |
 | OPEN | 11 |
 | DEFERRED | 4 |
-| **Total** | **32** |
+| **Total** | **33** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 1 | 5 |
-| P1 | 2 | 8 |
+| P1 | 3 | 8 |
 | P2 | 6 | 2 |
 | P3 | 3 | 0 |
 
