@@ -8,10 +8,18 @@
  * 4. Security headers (also set in next.config.ts)
  */
 
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { UserRole } from "@prisma/client";
+
+// Use lightweight auth config (no Prisma) for Edge Runtime compatibility
+const { auth } = NextAuth(authConfig);
+
+// String literals instead of UserRole enum to avoid importing @prisma/client in Edge
+const CLIENT = "CLIENT";
+const SUPER_ADMIN = "SUPER_ADMIN";
+const FIRM_ADMIN = "FIRM_ADMIN";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -60,7 +68,7 @@ export default auth((req: NextRequest & { auth: any }) => {
   const { role } = session.user;
 
   // Clients can only access portal routes
-  if (role === UserRole.CLIENT) {
+  if (role === CLIENT) {
     if (!PORTAL_ROUTES.some((r) => pathname.startsWith(r))) {
       return NextResponse.redirect(new URL("/portal", req.url));
     }
@@ -74,7 +82,7 @@ export default auth((req: NextRequest & { auth: any }) => {
 
   // Super-admin only routes
   if (SUPERADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
-    if (role !== UserRole.SUPER_ADMIN) {
+    if (role !== SUPER_ADMIN) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
@@ -82,8 +90,8 @@ export default auth((req: NextRequest & { auth: any }) => {
   // Admin routes require FIRM_ADMIN or above
   if (pathname.startsWith("/admin")) {
     if (
-      role !== UserRole.SUPER_ADMIN &&
-      role !== UserRole.FIRM_ADMIN
+      role !== SUPER_ADMIN &&
+      role !== FIRM_ADMIN
     ) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
