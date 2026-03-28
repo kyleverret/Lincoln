@@ -139,7 +139,7 @@ export default async function CaseDetailPage({ params }: PageProps) {
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
   // Fetch tasks and time entries for this matter
-  const [tasks, timeEntries] = await Promise.all([
+  const [tasks, rawTimeEntries] = await Promise.all([
     db.kanbanCard.findMany({
       where: {
         matterId: matter.id,
@@ -157,6 +157,14 @@ export default async function CaseDetailPage({ params }: PageProps) {
         })
       : Promise.resolve([]),
   ]);
+
+  // Serialize Prisma Decimal fields to numbers for client component
+  const timeEntries = rawTimeEntries.map((e) => ({
+    ...e,
+    hours: Number(e.hours),
+    rate: Number(e.rate),
+    date: e.date.toISOString(),
+  }));
 
   return (
     <div>
