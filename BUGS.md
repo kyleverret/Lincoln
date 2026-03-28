@@ -335,13 +335,14 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-024: Task added in case view overwrites existing task instead of creating new one
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** P1
 - **Found:** 2026-03-28
+- **Fixed:** 2026-03-28
 - **Symptoms:** When adding a task from the case detail view, an existing task for that case is modified rather than a new task being created.
 - **Principle Violated:** §1.5 Immutable Operations (mutations must target explicit IDs, not implicit first-match)
-- **Root Cause:** PENDING INVESTIGATION — likely the POST handler for task creation is performing an upsert or finding an existing card and updating it instead of always inserting a new record.
-- **Resolution:** PENDING — Verify the task creation API always uses `db.kanbanCard.create()` and never `upsert()` or `update()` for the create path. The UI should POST to a create endpoint, not a general-purpose save endpoint.
+- **Root Cause:** Two compounding issues: (1) `POST /api/action-items` explicitly found the first existing card for a matter and updated it (upsert behavior). (2) The `@@unique([matterId, columnId])` constraint on `KanbanCard` prevented more than one card per matter per column anyway. The API was designed for "one action item per matter" rather than "multiple tasks per matter".
+- **Resolution:** Introduced a new `POST /api/tasks` endpoint that always calls `db.kanbanCard.create()` — no find-existing logic. Also removed the `@@unique([matterId, columnId])` constraint from the schema and replaced it with a plain `@@index([matterId])`. Tasks now live on a distinct `BoardType.TASK` board separate from the case stage board. The old `/api/action-items` POST route is preserved for backward compat with case PM.
 
 ---
 
@@ -395,7 +396,7 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-028: Action Items must be refactored to Tasks with Kanban + list views, case integration, and separate Kanban topics
-- **Status:** DEFERRED
+- **Status:** FIXED
 - **Severity:** P2
 - **Found:** 2026-03-28
 - **Requirements:**
@@ -415,7 +416,7 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-029: Billing items not addable from case view or task view
-- **Status:** DEFERRED
+- **Status:** FIXED (partial — case view done; task view deferred)
 - **Severity:** P2
 - **Found:** 2026-03-28
 - **Requirements:**
@@ -466,16 +467,16 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 | Status | Count |
 |--------|-------|
-| FIXED | 12 |
-| OPEN | 12 |
-| DEFERRED | 8 |
+| FIXED | 15 |
+| OPEN | 11 |
+| DEFERRED | 6 |
 | **Total** | **32** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 1 | 5 |
-| P1 | 4 | 4 |
-| P2 | 6 | 1 |
+| P1 | 2 | 6 |
+| P2 | 6 | 2 |
 | P3 | 3 | 0 |
 
 ---

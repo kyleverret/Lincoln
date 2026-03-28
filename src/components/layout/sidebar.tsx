@@ -48,8 +48,8 @@ const PRIMARY_NAV: NavItem[] = [
     icon: KanbanSquare,
   },
   {
-    href: "/action-items",
-    label: "Action Items",
+    href: "/tasks",
+    label: "Tasks",
     icon: CheckSquare,
   },
   {

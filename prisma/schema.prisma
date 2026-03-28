@@ -121,6 +121,11 @@ enum AlertFloorType {
   PERCENTAGE  // Alert when balance < X% of last replenishment
 }
 
+enum BoardType {
+  CASE_STAGE  // Case project management board
+  TASK        // Task/action-item board (separate from case stages)
+}
+
 enum NotificationType {
   RETAINER_LOW
   IOLTA_APPROVAL_REQUESTED
@@ -301,6 +306,7 @@ model User {
   notifications         Notification[]
   requestedTrustTxns    TrustTransaction[] @relation("TrustRequestedBy")
   approvedTrustTxns     TrustTransaction[] @relation("TrustApprovedBy")
+  timeEntries           TimeEntry[]
 
   @@map("users")
 }
@@ -571,14 +577,15 @@ model IntakeForm {
 // ---------------------------------------------------------------------------
 
 model KanbanBoard {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   name        String
   description String?
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  boardType   BoardType @default(CASE_STAGE)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   columns     KanbanColumn[]
@@ -622,7 +629,7 @@ model KanbanCard {
   column      KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
   matter      Matter       @relation(fields: [matterId], references: [id], onDelete: Cascade)
 
-  @@unique([matterId, columnId])
+  @@index([matterId])
   @@index([columnId, position])
   @@map("kanban_cards")
 }
@@ -815,6 +822,7 @@ model TimeEntry {
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   matter      Matter          @relation(fields: [matterId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
   lineItems   InvoiceLineItem[]
 
   @@index([tenantId])
