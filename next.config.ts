@@ -47,6 +47,19 @@ const nextConfig: NextConfig = {
       allowedOrigins: ["localhost:3000"],
     },
   },
+
+  webpack: (config, { nextRuntime }) => {
+    // next-auth v5 / jose v5 reference CompressionStream/DecompressionStream which
+    // are not available in all Edge Runtime environments. Stub them out so the
+    // middleware bundle doesn't fail static analysis at build time.
+    if (nextRuntime === "edge") {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "node:stream/web": false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
