@@ -16,12 +16,13 @@ const createSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "TRUST_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const accounts = await db.bankAccount.findMany({
-    where: { tenantId: session.user.tenantId ?? undefined, isActive: true },
+    where: { tenantId: session.user.tenantId, isActive: true },
     orderBy: [{ accountType: "asc" }, { name: "asc" }],
   });
 
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -47,12 +49,12 @@ export async function POST(req: Request) {
       ...rest,
       bankName: bankName || null,
       lastFourDigits: lastFourDigits || null,
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
     },
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "BANK_ACCOUNT_CREATED",
     entityType: "BankAccount",

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     });
 
     if (!matter) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     await audit.matterAccessed(
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     return NextResponse.json(matter);
   } catch (err) {
     console.error("[CASE GET]", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -60,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
 
     if (!matter) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const canUpdate =
@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       (role === UserRole.STAFF && matter.assignments.some((a) => a.userId === userId));
 
     if (!canUpdate) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -90,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { message: "Validation error", errors: parsed.error.flatten() },
+        { error: "Validation error", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json(updated);
   } catch (err) {
     console.error("[CASE PATCH]", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -131,14 +131,14 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
     const { id } = await params;
 
     if (!hasPermission(role, "MATTER_CLOSE")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Soft delete
@@ -150,7 +150,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[CASE DELETE]", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

@@ -9,11 +9,11 @@ import { encryptField } from "@/lib/encryption";
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!hasPermission(session.user.role, "CLIENT_CREATE")) {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const intakes = await db.intakeForm.findMany({
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, id: userId } = session.user;
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { message: "Validation error", errors: parsed.error.flatten() },
+        { error: "Validation error", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!tenant) {
-      return NextResponse.json({ message: "Tenant not found" }, { status: 404 });
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     // Encrypt the entire form data JSON (it contains PII)
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[INTAKE POST]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

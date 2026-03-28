@@ -18,13 +18,14 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "TRUST_TRANSFER_APPROVE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const txn = await db.trustTransaction.findFirst({
-    where: { id, tenantId: session.user.tenantId ?? undefined },
+    where: { id, tenantId: session.user.tenantId },
     include: { matter: { select: { id: true, matterNumber: true } } },
   });
 
@@ -53,7 +54,7 @@ export async function PATCH(
 
     // Notify requester
     await sendNotification({
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       userIds: [txn.requestedById],
       type: NotificationType.IOLTA_APPROVED,
       title: "IOLTA transfer approved",
@@ -63,10 +64,10 @@ export async function PATCH(
     });
 
     // Check retainer alert after balance changes
-    await checkRetainerAlert(session.user.tenantId!, txn.matterId, txn.bankAccountId).catch(() => {});
+    await checkRetainerAlert(session.user.tenantId, txn.matterId, txn.bankAccountId).catch(() => {});
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       matterId: txn.matterId,
       action: "TRUST_TRANSFER_APPROVED",
@@ -88,7 +89,7 @@ export async function PATCH(
     });
 
     await sendNotification({
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       userIds: [txn.requestedById],
       type: NotificationType.IOLTA_REJECTED,
       title: "IOLTA transfer rejected",
@@ -98,7 +99,7 @@ export async function PATCH(
     });
 
     await writeAuditLog({
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       userId: session.user.id,
       matterId: txn.matterId,
       action: "TRUST_TRANSFER_REJECTED",

@@ -8,13 +8,13 @@ export async function PUT(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
 
     if (!hasPermission(role, "FIRM_DASHBOARD")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest) {
 
     if (!name || name.length < 2 || name.length > 200) {
       return NextResponse.json(
-        { message: "Firm name must be between 2 and 200 characters" },
+        { error: "Firm name must be between 2 and 200 characters" },
         { status: 400 }
       );
     }
@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest) {
     });
 
     if (!tenant) {
-      return NextResponse.json({ message: "Tenant not found" }, { status: 404 });
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     await db.tenant.update({
@@ -55,7 +55,7 @@ export async function PUT(req: NextRequest) {
   } catch (err) {
     console.error("[SETTINGS FIRM PUT]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

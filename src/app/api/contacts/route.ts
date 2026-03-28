@@ -20,6 +20,7 @@ const createContactSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "CONTACT_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
 
   const contacts = await db.contact.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       isActive: true,
       ...(matterId ? { matterId } : {}),
       ...(search
@@ -52,12 +53,19 @@ export async function GET(req: Request) {
     take: 100,
   });
 
+  await writeAuditLog({
+    userId: session.user.id,
+    tenantId: session.user.tenantId,
+    action: "CONTACT_ACCESSED",
+  });
+
   return Response.json(contacts);
 }
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "CONTACT_CREATE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -74,7 +82,7 @@ export async function POST(req: Request) {
   // Validate matter belongs to tenant if provided
   if (matterId) {
     const matter = await db.matter.findFirst({
-      where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
+      where: { id: matterId, tenantId: session.user.tenantId },
     });
     if (!matter) {
       return Response.json({ error: "Matter not found" }, { status: 404 });
@@ -89,13 +97,13 @@ export async function POST(req: Request) {
       company: company || null,
       title: title || null,
       notes: notes || null,
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       matterId: matterId || null,
     },
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "CONTACT_CREATED",
     entityType: "Contact",
@@ -109,6 +117,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "CONTACT_DELETE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -123,7 +132,7 @@ export async function DELETE(req: Request) {
 
   // Verify contact belongs to tenant
   const contact = await db.contact.findFirst({
-    where: { id: contactId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: contactId, tenantId: session.user.tenantId },
   });
 
   if (!contact) {
@@ -137,7 +146,7 @@ export async function DELETE(req: Request) {
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "CONTACT_DELETED",
     entityType: "Contact",

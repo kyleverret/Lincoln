@@ -27,6 +27,7 @@ const createInvoiceSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "BILLING_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
   const invoices = await db.invoice.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       ...(matterId ? { matterId } : {}),
       ...(status ? { status } : {}),
     },
@@ -51,12 +52,19 @@ export async function GET(req: Request) {
     take: 100,
   });
 
+  await writeAuditLog({
+    userId: session.user.id,
+    tenantId: session.user.tenantId,
+    action: "INVOICE_ACCESSED",
+  });
+
   return Response.json(invoices);
 }
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!hasPermission(session.user.role, "INVOICE_CREATE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -72,13 +80,13 @@ export async function POST(req: Request) {
 
   // Validate matter belongs to tenant
   const matter = await db.matter.findFirst({
-    where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: matterId, tenantId: session.user.tenantId },
   });
   if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
 
   // Generate invoice number
   const existing = await db.invoice.count({
-    where: { tenantId: session.user.tenantId ?? undefined },
+    where: { tenantId: session.user.tenantId },
   });
   const year = new Date().getFullYear();
   const invoiceNumber = `INV-${year}-${String(existing + 1).padStart(4, "0")}`;
@@ -90,7 +98,7 @@ export async function POST(req: Request) {
 
   const invoice = await db.invoice.create({
     data: {
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       matterId,
       clientId,
       invoiceNumber,
@@ -131,7 +139,7 @@ export async function POST(req: Request) {
   }
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     matterId,
     action: "INVOICE_CREATED",

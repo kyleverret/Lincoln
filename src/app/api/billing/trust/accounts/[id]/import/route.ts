@@ -42,13 +42,14 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id: bankAccountId } = await params;
   const account = await db.bankAccount.findFirst({
-    where: { id: bankAccountId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: bankAccountId, tenantId: session.user.tenantId },
   });
   if (!account) return Response.json({ error: "Not found" }, { status: 404 });
 
@@ -76,7 +77,7 @@ export async function POST(
 
   // Pre-fetch all matters for this tenant for number lookup
   const matters = await db.matter.findMany({
-    where: { tenantId: session.user.tenantId ?? undefined },
+    where: { tenantId: session.user.tenantId },
     select: { id: true, matterNumber: true },
   });
   const matterByNumber = new Map(matters.map((m) => [m.matterNumber, m.id]));
@@ -100,7 +101,7 @@ export async function POST(
     if (!matterId) { errors.push(`Row ${i + 1}: matter "${matterNumber}" not found`); continue; }
 
     toCreate.push({
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       matterId,
       bankAccountId,
       type,
@@ -124,11 +125,11 @@ export async function POST(
   // Run retainer alerts for each affected matter
   const affectedMatters = [...new Set(toCreate.map((r) => r.matterId))];
   for (const matterId of affectedMatters) {
-    await checkRetainerAlert(session.user.tenantId!, matterId, bankAccountId).catch(() => {});
+    await checkRetainerAlert(session.user.tenantId, matterId, bankAccountId).catch(() => {});
   }
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     action: "TRUST_DEPOSIT",
     entityType: "BankAccount",

@@ -17,6 +17,7 @@ const upsertSchema = z.object({
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "TRUST_READ")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -26,9 +27,15 @@ export async function GET(req: Request) {
 
   const rules = await db.billingRule.findMany({
     where: {
-      tenantId: session.user.tenantId ?? undefined,
+      tenantId: session.user.tenantId,
       ...(matterId ? { matterId } : {}),
     },
+  });
+
+  await writeAuditLog({
+    userId: session.user.id,
+    tenantId: session.user.tenantId,
+    action: "BILLING_RULE_ACCESSED",
   });
 
   return Response.json(rules);
@@ -37,6 +44,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BILLING_RULE_MANAGE")) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -51,14 +59,14 @@ export async function POST(req: Request) {
 
   // Validate matter belongs to tenant
   const matter = await db.matter.findFirst({
-    where: { id: matterId, tenantId: session.user.tenantId ?? undefined },
+    where: { id: matterId, tenantId: session.user.tenantId },
   });
   if (!matter) return Response.json({ error: "Matter not found" }, { status: 404 });
 
   const rule = await db.billingRule.upsert({
     where: { matterId },
     create: {
-      tenantId: session.user.tenantId!,
+      tenantId: session.user.tenantId,
       matterId,
       floorType,
       floorAmount: floorAmount ?? null,
@@ -76,7 +84,7 @@ export async function POST(req: Request) {
   });
 
   await writeAuditLog({
-    tenantId: session.user.tenantId ?? undefined,
+    tenantId: session.user.tenantId,
     userId: session.user.id,
     matterId,
     action: "BILLING_RULE_SET",

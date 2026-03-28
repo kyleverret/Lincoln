@@ -13,7 +13,7 @@ export async function GET(
   try {
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -33,27 +33,27 @@ export async function GET(
 
     if (!document) {
       return NextResponse.json(
-        { message: "Document not found" },
+        { error: "Document not found" },
         { status: 404 }
       );
     }
 
     // Tenant isolation
     if (tenantId && document.tenantId !== tenantId) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // For CLIENT role: only documents explicitly allowed for client view
     if (role === UserRole.CLIENT) {
       if (!document.allowClientView) {
-        return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       // Verify the client owns this document
       const client = await db.client.findFirst({
         where: { portalUserId: userId, tenantId: document.tenantId },
       });
       if (!client || document.clientId !== client.id) {
-        return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } else if (
       role !== UserRole.SUPER_ADMIN &&
@@ -65,12 +65,17 @@ export async function GET(
         document.uploadedById === userId;
 
       if (!isAssigned) {
-        return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
 
     // IV field stores "<iv_hex>:<authTag_hex>" for AES-GCM
-    const [iv, authTag] = document.iv.split(":");
+    const parts = document.iv.split(":");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      console.error("[DOCUMENT DOWNLOAD] Corrupted IV format for document:", document.id);
+      return Response.json({ error: "Document integrity error" }, { status: 500 });
+    }
+    const [iv, authTag] = parts;
 
     // Retrieve and decrypt document
     const decrypted = await retrieveDocument(
@@ -89,7 +94,7 @@ export async function GET(
           `expected ${document.checksum}, got ${downloadChecksum}`
         );
         return NextResponse.json(
-          { message: "Document integrity check failed" },
+          { error: "Document integrity check failed" },
           { status: 500 }
         );
       }
@@ -120,7 +125,7 @@ export async function GET(
   } catch (err) {
     console.error("[DOCUMENT DOWNLOAD]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

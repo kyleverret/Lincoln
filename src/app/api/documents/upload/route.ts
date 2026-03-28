@@ -16,13 +16,13 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { tenantId, role, id: userId } = session.user;
 
     if (!hasPermission(role, "DOCUMENT_UPLOAD")) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const formData = await req.formData();
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { message: "No file provided" },
+        { error: "No file provided" },
         { status: 400 }
       );
     }
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { message: "File too large" },
+        { error: "File too large" },
         { status: 400 }
       );
     }
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     // Validate MIME type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { message: "File type not allowed" },
+        { error: "File type not allowed" },
         { status: 400 }
       );
     }
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       });
       if (!matter) {
         return NextResponse.json(
-          { message: "Matter not found" },
+          { error: "Matter not found" },
           { status: 404 }
         );
       }
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     if (!tenant) {
       return NextResponse.json(
-        { message: "Tenant not found" },
+        { error: "Tenant not found" },
         { status: 404 }
       );
     }
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[DOCUMENT UPLOAD]", err);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
