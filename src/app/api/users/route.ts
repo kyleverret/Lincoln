@@ -17,6 +17,50 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(128).optional(),
 });
 
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { tenantId } = session.user;
+
+    // Fetch users belonging to this tenant via tenantUsers join
+    const tenantUsers = await db.tenantUser.findMany({
+      where: { tenantId, isActive: true },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: [{ user: { lastName: "asc" } }],
+    });
+
+    const users = tenantUsers.map((tu) => ({
+      id: tu.user.id,
+      firstName: tu.user.firstName,
+      lastName: tu.user.lastName,
+      email: tu.user.email,
+      role: tu.role,
+      title: tu.title,
+    }));
+
+    return NextResponse.json(users);
+  } catch (err) {
+    console.error("[USERS GET]", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
