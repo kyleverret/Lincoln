@@ -17,6 +17,9 @@ import {
   Lock,
   Building2,
   Gavel,
+  CheckSquare,
+  Clock,
+  Trash2,
 } from "lucide-react";
 import {
   formatDate,
@@ -34,6 +37,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { decryptField } from "@/lib/encryption";
 import { AddNoteForm } from "@/components/cases/add-note-form";
+import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
+import { LogTimeSection } from "@/components/billing/log-time-section";
+import { hasPermission } from "@/lib/permissions";
 
 export const metadata = { title: "Case Detail" };
 
@@ -122,6 +128,28 @@ export default async function CaseDetailPage({ params }: PageProps) {
     role === UserRole.FIRM_ADMIN ||
     (role === UserRole.ATTORNEY &&
       matter.assignments.some((a) => a.userId === userId));
+
+  const canBilling = hasPermission(role, "BILLING_READ");
+
+  // Fetch tasks and time entries for this matter
+  const [tasks, timeEntries] = await Promise.all([
+    db.kanbanCard.findMany({
+      where: {
+        matterId: matter.id,
+        column: { board: { tenantId, boardType: "TASK" } },
+      },
+      include: { column: { select: { name: true, isTerminal: true } } },
+      orderBy: [{ column: { position: "asc" } }, { position: "asc" }],
+    }),
+    canBilling
+      ? db.timeEntry.findMany({
+          where: { matterId: matter.id, tenantId },
+          include: { user: { select: { firstName: true, lastName: true } } },
+          orderBy: { date: "desc" },
+          take: 20,
+        })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div>
@@ -239,12 +267,18 @@ export default async function CaseDetailPage({ params }: PageProps) {
 
         {/* Tabs */}
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="tasks">
+              Tasks ({tasks.length})
+            </TabsTrigger>
             <TabsTrigger value="documents">
               Documents ({matter._count.documents})
             </TabsTrigger>
             <TabsTrigger value="notes">Notes ({matter._count.notes})</TabsTrigger>
+            {canBilling && (
+              <TabsTrigger value="time">Time</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -417,6 +451,90 @@ export default async function CaseDetailPage({ params }: PageProps) {
             </Card>
           </TabsContent>
 
+          {/* Tasks tab */}
+          <TabsContent value="tasks" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4" />
+                  Tasks
+                </CardTitle>
+                <AddTaskDialog
+                  matterId={matter.id}
+                  matterTitle={matter.title}
+                  matterNumber={matter.matterNumber}
+                />
+              </CardHeader>
+              <CardContent>
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No tasks yet. Add a task above.
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    {tasks.map((task) => {
+                      const isOverdue =
+                        task.dueDate && new Date(task.dueDate) < new Date();
+                      const priorityColors: Record<string, string> = {
+                        URGENT: "bg-red-100 text-red-700",
+                        HIGH: "bg-orange-100 text-orange-700",
+                        MEDIUM: "bg-blue-50 text-blue-700",
+                        LOW: "bg-slate-100 text-slate-500",
+                      };
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-center justify-between py-3 gap-3"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {task.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-xs text-muted-foreground">
+                                {task.column.name}
+                              </span>
+                              {task.dueDate && (
+                                <span
+                                  className={`text-xs ${
+                                    isOverdue
+                                      ? "text-red-600 font-medium"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  Due {formatDate(task.dueDate)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium hidden sm:inline ${
+                                priorityColors[task.priority] ??
+                                "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {task.priority.charAt(0) +
+                                task.priority.slice(1).toLowerCase()}
+                            </span>
+                            {task.column.isTerminal && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs text-green-700 border-green-300"
+                              >
+                                Done
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="notes" className="mt-4">
             <Card>
               <CardHeader className="pb-3">
@@ -467,8 +585,15 @@ export default async function CaseDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* Time tab */}
+          {canBilling && (
+            <TabsContent value="time" className="mt-4">
+              <LogTimeSection matterId={matter.id} entries={timeEntries} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
   );
 }
+
