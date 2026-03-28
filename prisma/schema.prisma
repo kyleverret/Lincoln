@@ -23,11 +23,11 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 enum UserRole {
-  SUPER_ADMIN   // Platform-wide administrator
-  FIRM_ADMIN    // Firm-level admin; can manage users and assign cases
-  ATTORNEY      // Licensed attorney; assigned to matters
-  STAFF         // Paralegal / support staff; assigned to matters
-  CLIENT        // Client portal user
+  SUPER_ADMIN // Platform-wide administrator
+  FIRM_ADMIN // Firm-level admin; can manage users and assign cases
+  ATTORNEY // Licensed attorney; assigned to matters
+  STAFF // Paralegal / support staff; assigned to matters
+  CLIENT // Client portal user
 }
 
 enum Plan {
@@ -96,34 +96,34 @@ enum ContactType {
 }
 
 enum BankAccountType {
-  IOLTA        // Client trust account — regulated
-  OPERATING    // Firm operating account
+  IOLTA // Client trust account — regulated
+  OPERATING // Firm operating account
   OTHER
 }
 
 enum TrustTransactionType {
-  DEPOSIT            // Client funds received
-  WITHDRAWAL         // Disbursement on behalf of client
-  TRANSFER_OUT       // Transfer of earned fees to operating account
-  TRANSFER_IN        // Correction / reversal back to trust
-  ADJUSTMENT         // Manual balance adjustment with explanation
+  DEPOSIT // Client funds received
+  WITHDRAWAL // Disbursement on behalf of client
+  TRANSFER_OUT // Transfer of earned fees to operating account
+  TRANSFER_IN // Correction / reversal back to trust
+  ADJUSTMENT // Manual balance adjustment with explanation
 }
 
 enum TrustTransactionStatus {
-  PENDING_APPROVAL   // Transfer to operating; awaiting attorney sign-off
-  APPROVED           // Approved, ready to clear
-  REJECTED           // Rejected by approver
-  CLEARED            // Posted and reconciled
+  PENDING_APPROVAL // Transfer to operating; awaiting attorney sign-off
+  APPROVED // Approved, ready to clear
+  REJECTED // Rejected by approver
+  CLEARED // Posted and reconciled
 }
 
 enum AlertFloorType {
-  STATIC      // Alert when balance < $X
-  PERCENTAGE  // Alert when balance < X% of last replenishment
+  STATIC // Alert when balance < $X
+  PERCENTAGE // Alert when balance < X% of last replenishment
 }
 
 enum BoardType {
-  CASE_STAGE  // Case project management board
-  TASK        // Task/action-item board (separate from case stages)
+  CASE_STAGE // Case project management board
+  TASK // Task/action-item board (separate from case stages)
 }
 
 enum NotificationType {
@@ -174,6 +174,9 @@ enum AuditAction {
   TENANT_UPDATED
   KANBAN_UPDATED
   KANBAN_DELETED
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_DELETED
   PERMISSION_CHANGED
   NOTIFICATION_ACCESSED
   NOTIFICATION_UPDATED
@@ -222,47 +225,47 @@ enum IntakeStatus {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id               String   @id @default(cuid())
-  name             String
-  slug             String   @unique // used in URLs and for tenant resolution
-  plan             Plan     @default(PROFESSIONAL)
-  isActive         Boolean  @default(true)
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique // used in URLs and for tenant resolution
+  plan            Plan     @default(PROFESSIONAL)
+  isActive        Boolean  @default(true)
   // Encryption key handle (the actual DEK is derived via HKDF from master key)
-  encryptionKeyId  String   @default(cuid())
+  encryptionKeyId String   @default(cuid())
   // Firm profile
-  address          String?
-  city             String?
-  state            String?
-  zipCode          String?
-  phone            String?
-  website          String?
-  barNumber        String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  phone           String?
+  website         String?
+  barNumber       String?
   // Branding
-  logoUrl          String?
-  primaryColor     String?  @default("#1e40af")
+  logoUrl         String?
+  primaryColor    String?  @default("#1e40af")
   // Settings stored as JSON
-  settings         Json     @default("{}")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  settings        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  users            TenantUser[]
-  clients          Client[]
-  matters          Matter[]
-  documents        Document[]
-  auditLogs        AuditLog[]
-  kanbanBoards     KanbanBoard[]
-  intakeForms      IntakeForm[]
-  messages         Message[]
-  practiceAreas    PracticeArea[]
-  customFields     CustomField[]
-  contacts         Contact[]
-  invoices         Invoice[]
-  timeEntries      TimeEntry[]
-  payments         Payment[]
-  bankAccounts     BankAccount[]
+  users             TenantUser[]
+  clients           Client[]
+  matters           Matter[]
+  documents         Document[]
+  auditLogs         AuditLog[]
+  kanbanBoards      KanbanBoard[]
+  intakeForms       IntakeForm[]
+  messages          Message[]
+  practiceAreas     PracticeArea[]
+  customFields      CustomField[]
+  contacts          Contact[]
+  invoices          Invoice[]
+  timeEntries       TimeEntry[]
+  payments          Payment[]
+  bankAccounts      BankAccount[]
   trustTransactions TrustTransaction[]
-  billingRules     BillingRule[]
-  notifications    Notification[]
+  billingRules      BillingRule[]
+  notifications     Notification[]
 
   @@map("tenants")
 }
@@ -272,42 +275,42 @@ model Tenant {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  passwordHash          String
-  firstName             String
-  lastName              String
-  phone                 String?
-  avatarUrl             String?
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  phone               String?
+  avatarUrl           String?
   // MFA
-  mfaSecret             String?   // TOTP secret (encrypted at rest)
-  mfaEnabled            Boolean   @default(false)
-  mfaBackupCodes        String[]  @default([]) // hashed backup codes
+  mfaSecret           String? // TOTP secret (encrypted at rest)
+  mfaEnabled          Boolean   @default(false)
+  mfaBackupCodes      String[]  @default([]) // hashed backup codes
   // Account state
-  isActive              Boolean   @default(true)
-  emailVerified         DateTime?
-  lastLoginAt           DateTime?
-  lastLoginIp           String?
-  failedLoginAttempts   Int       @default(0)
-  lockedUntil           DateTime?
-  mustChangePassword    Boolean   @default(false)
-  passwordChangedAt     DateTime?
+  isActive            Boolean   @default(true)
+  emailVerified       DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  mustChangePassword  Boolean   @default(false)
+  passwordChangedAt   DateTime?
   // Portal token for magic link (clients)
-  portalToken           String?   @unique
-  portalTokenExpiry     DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  portalToken         String?   @unique
+  portalTokenExpiry   DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  tenantUsers           TenantUser[]
-  auditLogs             AuditLog[]
-  uploadedDocuments     Document[]   @relation("UploadedBy")
-  sentMessages          Message[]    @relation("SentBy")
-  matterAssignments     MatterAssignment[]
-  notifications         Notification[]
-  requestedTrustTxns    TrustTransaction[] @relation("TrustRequestedBy")
-  approvedTrustTxns     TrustTransaction[] @relation("TrustApprovedBy")
-  timeEntries           TimeEntry[]
-  matterNotes           MatterNote[]
+  tenantUsers        TenantUser[]
+  auditLogs          AuditLog[]
+  uploadedDocuments  Document[]         @relation("UploadedBy")
+  sentMessages       Message[]          @relation("SentBy")
+  matterAssignments  MatterAssignment[]
+  notifications      Notification[]
+  requestedTrustTxns TrustTransaction[] @relation("TrustRequestedBy")
+  approvedTrustTxns  TrustTransaction[] @relation("TrustApprovedBy")
+  timeEntries        TimeEntry[]
+  matterNotes        MatterNote[]
 
   @@map("users")
 }
@@ -317,14 +320,14 @@ model TenantUser {
   tenantId   String
   userId     String
   role       UserRole
-  title      String?  // e.g., "Senior Partner", "Paralegal"
+  title      String? // e.g., "Senior Partner", "Paralegal"
   department String?
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
   @@map("tenant_users")
@@ -340,8 +343,8 @@ model PracticeArea {
   name     String
   color    String @default("#6b7280")
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matters  Matter[]
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matters Matter[]
 
   @@unique([tenantId, name])
   @@map("practice_areas")
@@ -352,41 +355,41 @@ model PracticeArea {
 // ---------------------------------------------------------------------------
 
 model Client {
-  id                String   @id @default(cuid())
-  tenantId          String
+  id              String   @id @default(cuid())
+  tenantId        String
   // Personal info — email/phone stored plain; sensitive fields encrypted
-  firstName         String
-  lastName          String
-  email             String
-  phone             String?
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
   // Encrypted fields (AES-256-GCM, stored as "<iv>:<ciphertext>" hex)
-  encDateOfBirth    String?  // encrypted DOB
-  encSsnLastFour    String?  // encrypted last 4 SSN digits
-  encAddress        String?  // encrypted street address
-  city              String?
-  state             String?
-  zipCode           String?
+  encDateOfBirth  String? // encrypted DOB
+  encSsnLastFour  String? // encrypted last 4 SSN digits
+  encAddress      String? // encrypted street address
+  city            String?
+  state           String?
+  zipCode         String?
   // Classification
-  clientType        String   @default("INDIVIDUAL") // INDIVIDUAL | BUSINESS
-  companyName       String?
-  isActive          Boolean  @default(true)
+  clientType      String   @default("INDIVIDUAL") // INDIVIDUAL | BUSINESS
+  companyName     String?
+  isActive        Boolean  @default(true)
   // Portal access — links to a User with CLIENT role
-  portalUserId      String?  @unique
-  portalEnabled     Boolean  @default(false)
+  portalUserId    String?  @unique
+  portalEnabled   Boolean  @default(false)
   // Notes encrypted
-  encNotes          String?
-  conflictChecked   Boolean  @default(false)
-  conflictNotes     String?
-  referralSource    String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  encNotes        String?
+  conflictChecked Boolean  @default(false)
+  conflictNotes   String?
+  referralSource  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matters           MatterClient[]
-  intakeForms       IntakeForm[]
-  documents         Document[]
-  messages          Message[]
-  auditLogs         AuditLog[]
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matters     MatterClient[]
+  intakeForms IntakeForm[]
+  documents   Document[]
+  messages    Message[]
+  auditLogs   AuditLog[]
 
   @@index([tenantId])
   @@index([tenantId, email])
@@ -398,53 +401,53 @@ model Client {
 // ---------------------------------------------------------------------------
 
 model Matter {
-  id              String       @id @default(cuid())
-  tenantId        String
-  matterNumber    String       // e.g., "2024-0001" — unique per tenant
-  title           String
-  description     String?
-  practiceAreaId  String?
-  status          MatterStatus @default(INTAKE)
-  priority        Priority     @default(MEDIUM)
+  id                 String       @id @default(cuid())
+  tenantId           String
+  matterNumber       String // e.g., "2024-0001" — unique per tenant
+  title              String
+  description        String?
+  practiceAreaId     String?
+  status             MatterStatus @default(INTAKE)
+  priority           Priority     @default(MEDIUM)
   // Dates
-  openedAt        DateTime     @default(now())
-  closedAt        DateTime?
-  dueDate         DateTime?
-  statuteOfLimits DateTime?    // critical deadline
+  openedAt           DateTime     @default(now())
+  closedAt           DateTime?
+  dueDate            DateTime?
+  statuteOfLimits    DateTime? // critical deadline
   // Billing
   billingType        BillingType  @default(HOURLY)
   hourlyRate         Decimal?     @db.Decimal(10, 2)
   flatFee            Decimal?     @db.Decimal(10, 2)
   retainerAmount     Decimal?     @db.Decimal(10, 2)
-  trustBankAccountId String?      // which IOLTA account holds this matter's funds
+  trustBankAccountId String? // which IOLTA account holds this matter's funds
   // Court info
-  courtName       String?
-  caseNumber      String?      // court-assigned case number
-  judge           String?
-  opposingCounsel String?
+  courtName          String?
+  caseNumber         String? // court-assigned case number
+  judge              String?
+  opposingCounsel    String?
   // Flags
-  isActive        Boolean      @default(true)
-  isConfidential  Boolean      @default(false)
+  isActive           Boolean      @default(true)
+  isConfidential     Boolean      @default(false)
   // Custom metadata as JSON
-  metadata        Json         @default("{}")
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  metadata           Json         @default("{}")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
-  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  practiceArea    PracticeArea?      @relation(fields: [practiceAreaId], references: [id])
-  clients         MatterClient[]
-  assignments     MatterAssignment[]
-  documents       Document[]
-  notes           MatterNote[]
-  kanbanCards     KanbanCard[]
-  messages        Message[]
-  auditLogs       AuditLog[]
-  contacts         Contact[]
-  invoices         Invoice[]
-  timeEntries      TimeEntry[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  practiceArea      PracticeArea?      @relation(fields: [practiceAreaId], references: [id])
+  clients           MatterClient[]
+  assignments       MatterAssignment[]
+  documents         Document[]
+  notes             MatterNote[]
+  kanbanCards       KanbanCard[]
+  messages          Message[]
+  auditLogs         AuditLog[]
+  contacts          Contact[]
+  invoices          Invoice[]
+  timeEntries       TimeEntry[]
   trustTransactions TrustTransaction[]
-  billingRule      BillingRule?
-  trustBankAccount BankAccount?        @relation("MatterTrustAccount", fields: [trustBankAccountId], references: [id])
+  billingRule       BillingRule?
+  trustBankAccount  BankAccount?       @relation("MatterTrustAccount", fields: [trustBankAccountId], references: [id])
 
   @@unique([tenantId, matterNumber])
   @@index([tenantId])
@@ -453,15 +456,15 @@ model Matter {
 }
 
 model MatterClient {
-  id         String   @id @default(cuid())
-  matterId   String
-  clientId   String
-  isPrimary  Boolean  @default(false)
-  role       String?  // e.g., "Plaintiff", "Defendant", "Witness"
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  matterId  String
+  clientId  String
+  isPrimary Boolean  @default(false)
+  role      String? // e.g., "Plaintiff", "Defendant", "Witness"
+  createdAt DateTime @default(now())
 
-  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  matter Matter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([matterId, clientId])
   @@map("matter_clients")
@@ -471,13 +474,13 @@ model MatterAssignment {
   id         String   @id @default(cuid())
   matterId   String
   userId     String
-  role       String?  // e.g., "Lead Attorney", "Paralegal"
+  role       String? // e.g., "Lead Attorney", "Paralegal"
   isLead     Boolean  @default(false)
   assignedAt DateTime @default(now())
   assignedBy String?
 
-  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matter Matter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([matterId, userId])
   @@map("matter_assignments")
@@ -493,8 +496,8 @@ model MatterNote {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  matter     Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  author     User     @relation(fields: [authorId], references: [id])
+  matter Matter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
 
   @@index([matterId])
   @@map("matter_notes")
@@ -511,18 +514,18 @@ model Document {
   clientId         String?
   uploadedById     String
   // File metadata
-  fileName         String           // original filename
-  displayName      String           // user-friendly name
+  fileName         String // original filename
+  displayName      String // user-friendly name
   mimeType         String
   sizeBytes        BigInt
   category         DocumentCategory @default(OTHER)
   description      String?
   tags             String[]         @default([])
   // Encrypted storage
-  storagePath      String           // path in storage backend (encrypted filename)
-  encryptionKeyId  String           // which tenant key was used
-  iv               String           // initialization vector (hex)
-  checksum         String           // SHA-256 of plaintext for integrity
+  storagePath      String // path in storage backend (encrypted filename)
+  encryptionKeyId  String // which tenant key was used
+  iv               String // initialization vector (hex)
+  checksum         String // SHA-256 of plaintext for integrity
   // Version control
   version          Int              @default(1)
   parentDocumentId String?
@@ -533,13 +536,13 @@ model Document {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter           Matter?          @relation(fields: [matterId], references: [id])
-  client           Client?          @relation(fields: [clientId], references: [id])
-  uploadedBy       User             @relation("UploadedBy", fields: [uploadedById], references: [id])
-  parentDocument   Document?        @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
-  versions         Document[]       @relation("DocumentVersions")
-  auditLogs        AuditLog[]
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter         Matter?    @relation(fields: [matterId], references: [id])
+  client         Client?    @relation(fields: [clientId], references: [id])
+  uploadedBy     User       @relation("UploadedBy", fields: [uploadedById], references: [id])
+  parentDocument Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  versions       Document[] @relation("DocumentVersions")
+  auditLogs      AuditLog[]
 
   @@index([tenantId])
   @@index([tenantId, matterId])
@@ -552,23 +555,23 @@ model Document {
 // ---------------------------------------------------------------------------
 
 model IntakeForm {
-  id            String       @id @default(cuid())
-  tenantId      String
-  clientId      String?
-  status        IntakeStatus @default(DRAFT)
+  id           String       @id @default(cuid())
+  tenantId     String
+  clientId     String?
+  status       IntakeStatus @default(DRAFT)
   // Encrypted form data (JSON encrypted as a single blob)
-  encFormData   String
-  practiceArea  String?
-  assignedTo    String?      // userId
-  reviewedBy    String?      // userId
-  reviewedAt    DateTime?
-  notes         String?
-  submittedAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  encFormData  String
+  practiceArea String?
+  assignedTo   String? // userId
+  reviewedBy   String? // userId
+  reviewedAt   DateTime?
+  notes        String?
+  submittedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client        Client?      @relation(fields: [clientId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id])
 
   @@index([tenantId])
   @@map("intake_forms")
@@ -589,47 +592,47 @@ model KanbanBoard {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  columns     KanbanColumn[]
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  columns KanbanColumn[]
 
   @@index([tenantId])
   @@map("kanban_boards")
 }
 
 model KanbanColumn {
-  id          String   @id @default(cuid())
-  boardId     String
-  name        String
-  color       String   @default("#6b7280")
-  position    Int      // sort order
-  wipLimit    Int?     // optional work-in-progress limit
-  isTerminal  Boolean  @default(false) // e.g., "Closed" column
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  boardId    String
+  name       String
+  color      String   @default("#6b7280")
+  position   Int // sort order
+  wipLimit   Int? // optional work-in-progress limit
+  isTerminal Boolean  @default(false) // e.g., "Closed" column
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  board       KanbanBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  cards       KanbanCard[]
+  board KanbanBoard  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards KanbanCard[]
 
   @@index([boardId, position])
   @@map("kanban_columns")
 }
 
 model KanbanCard {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   columnId    String
   matterId    String
-  position    Int      // sort order within column
+  position    Int // sort order within column
   // Quick-view fields (denormalized for performance)
   title       String
   dueDate     DateTime?
-  priority    Priority @default(MEDIUM)
-  assigneeIds String[] @default([])
-  labels      String[] @default([])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  priority    Priority  @default(MEDIUM)
+  assigneeIds String[]  @default([])
+  labels      String[]  @default([])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  column      KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  matter      Matter       @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  column KanbanColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  matter Matter       @relation(fields: [matterId], references: [id], onDelete: Cascade)
 
   @@index([matterId])
   @@index([columnId, position])
@@ -641,27 +644,27 @@ model KanbanCard {
 // ---------------------------------------------------------------------------
 
 model Message {
-  id          String        @id @default(cuid())
-  tenantId    String
-  matterId    String?
-  clientId    String?
-  senderId    String
+  id           String        @id @default(cuid())
+  tenantId     String
+  matterId     String?
+  clientId     String?
+  senderId     String
   // Recipients stored as array of userIds
-  recipientIds String[]     @default([])
-  subject     String?
+  recipientIds String[]      @default([])
+  subject      String?
   // Encrypted message body
-  encBody     String
-  status      MessageStatus @default(SENT)
-  isInternal  Boolean       @default(false)
-  parentId    String?       // for threading
-  readAt      DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  encBody      String
+  status       MessageStatus @default(SENT)
+  isInternal   Boolean       @default(false)
+  parentId     String? // for threading
+  readAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter      Matter?       @relation(fields: [matterId], references: [id])
-  client      Client?       @relation(fields: [clientId], references: [id])
-  sender      User          @relation("SentBy", fields: [senderId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter Matter? @relation(fields: [matterId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
+  sender User    @relation("SentBy", fields: [senderId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, clientId])
@@ -673,16 +676,16 @@ model Message {
 // ---------------------------------------------------------------------------
 
 model CustomField {
-  id           String @id @default(cuid())
-  tenantId     String
-  entityType   String // "MATTER" | "CLIENT"
-  fieldName    String
-  fieldType    String // "text" | "date" | "select" | "boolean" | "number"
-  isRequired   Boolean @default(false)
-  options      Json    @default("[]") // for select fields
-  position     Int     @default(0)
+  id         String  @id @default(cuid())
+  tenantId   String
+  entityType String // "MATTER" | "CLIENT"
+  fieldName  String
+  fieldType  String // "text" | "date" | "select" | "boolean" | "number"
+  isRequired Boolean @default(false)
+  options    Json    @default("[]") // for select fields
+  position   Int     @default(0)
 
-  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, entityType, fieldName])
   @@map("custom_fields")
@@ -701,7 +704,7 @@ model AuditLog {
   documentId   String?
   action       AuditAction
   // What changed (non-sensitive summary)
-  entityType   String?     // "User" | "Client" | "Matter" | "Document" etc.
+  entityType   String? // "User" | "Client" | "Matter" | "Document" etc.
   entityId     String?
   description  String?
   // Request metadata
@@ -713,11 +716,11 @@ model AuditLog {
   // Immutable timestamp (no updatedAt)
   createdAt    DateTime    @default(now())
 
-  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
-  user         User?       @relation(fields: [userId], references: [id])
-  client       Client?     @relation(fields: [clientId], references: [id])
-  matter       Matter?     @relation(fields: [matterId], references: [id])
-  document     Document?   @relation(fields: [documentId], references: [id])
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+  client   Client?   @relation(fields: [clientId], references: [id])
+  matter   Matter?   @relation(fields: [matterId], references: [id])
+  document Document? @relation(fields: [documentId], references: [id])
 
   @@index([tenantId, createdAt])
   @@index([userId, createdAt])
@@ -730,23 +733,23 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Contact {
-  id         String      @id @default(cuid())
-  tenantId   String
-  matterId   String?     // optional: contact linked to a specific matter
-  type       ContactType @default(OTHER)
-  firstName  String
-  lastName   String
-  email      String?
-  phone      String?
-  company    String?
-  title      String?     // e.g., "Senior Partner", "Expert Witness"
-  notes      String?
-  isActive   Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id        String      @id @default(cuid())
+  tenantId  String
+  matterId  String? // optional: contact linked to a specific matter
+  type      ContactType @default(OTHER)
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  company   String?
+  title     String? // e.g., "Senior Partner", "Expert Witness"
+  notes     String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter     Matter?     @relation(fields: [matterId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter Matter? @relation(fields: [matterId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, matterId])
@@ -762,25 +765,25 @@ model Invoice {
   tenantId      String
   matterId      String
   clientId      String
-  invoiceNumber String        // unique per tenant, e.g. "INV-2024-0001"
+  invoiceNumber String // unique per tenant, e.g. "INV-2024-0001"
   status        InvoiceStatus @default(DRAFT)
   issueDate     DateTime      @default(now())
   dueDate       DateTime
   subtotal      Decimal       @db.Decimal(10, 2)
-  taxRate       Decimal?      @db.Decimal(5, 4)   // e.g., 0.0875 for 8.75%
+  taxRate       Decimal?      @db.Decimal(5, 4) // e.g., 0.0875 for 8.75%
   taxAmount     Decimal       @default(0) @db.Decimal(10, 2)
   totalAmount   Decimal       @db.Decimal(10, 2)
   amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
   notes         String?
-  terms         String?       // e.g., "Net 30"
+  terms         String? // e.g., "Net 30"
   createdById   String
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter        Matter        @relation(fields: [matterId], references: [id])
-  lineItems     InvoiceLineItem[]
-  payments      Payment[]
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter    Matter            @relation(fields: [matterId], references: [id])
+  lineItems InvoiceLineItem[]
+  payments  Payment[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
@@ -796,13 +799,13 @@ model InvoiceLineItem {
   description String
   quantity    Decimal      @db.Decimal(10, 2)
   unitPrice   Decimal      @db.Decimal(10, 2)
-  amount      Decimal      @db.Decimal(10, 2)  // quantity * unitPrice
-  timeEntryId String?      // optional — links line item back to a time entry
+  amount      Decimal      @db.Decimal(10, 2) // quantity * unitPrice
+  timeEntryId String? // optional — links line item back to a time entry
   date        DateTime?
   position    Int          @default(0)
 
-  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  timeEntry   TimeEntry?   @relation(fields: [timeEntryId], references: [id])
+  invoice   Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  timeEntry TimeEntry? @relation(fields: [timeEntryId], references: [id])
 
   @@index([invoiceId])
   @@map("invoice_line_items")
@@ -812,20 +815,20 @@ model TimeEntry {
   id          String   @id @default(cuid())
   tenantId    String
   matterId    String
-  userId      String   // attorney/staff who logged the time
+  userId      String // attorney/staff who logged the time
   date        DateTime
   hours       Decimal  @db.Decimal(5, 2)
-  rate        Decimal  @db.Decimal(10, 2)  // hourly rate at time of entry
+  rate        Decimal  @db.Decimal(10, 2) // hourly rate at time of entry
   description String
   isBillable  Boolean  @default(true)
-  isBilled    Boolean  @default(false)     // true once added to an invoice
+  isBilled    Boolean  @default(false) // true once added to an invoice
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter      Matter          @relation(fields: [matterId], references: [id])
-  user        User            @relation(fields: [userId], references: [id])
-  lineItems   InvoiceLineItem[]
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter    Matter            @relation(fields: [matterId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+  lineItems InvoiceLineItem[]
 
   @@index([tenantId])
   @@index([tenantId, matterId])
@@ -834,19 +837,19 @@ model TimeEntry {
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  tenantId    String
-  invoiceId   String
-  amount      Decimal       @db.Decimal(10, 2)
-  method      PaymentMethod @default(CHECK)
-  reference   String?       // check number, transaction ID, etc.
-  paidAt      DateTime
-  notes       String?
+  id           String        @id @default(cuid())
+  tenantId     String
+  invoiceId    String
+  amount       Decimal       @db.Decimal(10, 2)
+  method       PaymentMethod @default(CHECK)
+  reference    String? // check number, transaction ID, etc.
+  paidAt       DateTime
+  notes        String?
   recordedById String
-  createdAt   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
 
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([invoiceId])
@@ -860,7 +863,7 @@ model Payment {
 model BankAccount {
   id                  String          @id @default(cuid())
   tenantId            String
-  name                String          // e.g., "Client Trust — First National"
+  name                String // e.g., "Client Trust — First National"
   bankName            String?
   accountType         BankAccountType @default(IOLTA)
   lastFourDigits      String?
@@ -876,9 +879,9 @@ model BankAccount {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  tenant              Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  transactions        TrustTransaction[]
-  matters             Matter[]        @relation("MatterTrustAccount")
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions TrustTransaction[]
+  matters      Matter[]           @relation("MatterTrustAccount")
 
   @@index([tenantId])
   @@map("bank_accounts")
@@ -905,15 +908,15 @@ model TrustTransaction {
   // Reconciliation
   isReconciled    Boolean                @default(false)
   reconciledAt    DateTime?
-  importBatchId   String?                // groups CSV-imported transactions
+  importBatchId   String? // groups CSV-imported transactions
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
-  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter          Matter                 @relation(fields: [matterId], references: [id])
-  bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id])
-  requestedBy     User                   @relation("TrustRequestedBy", fields: [requestedById], references: [id])
-  approvedBy      User?                  @relation("TrustApprovedBy", fields: [approvedById], references: [id])
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter      Matter      @relation(fields: [matterId], references: [id])
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+  requestedBy User        @relation("TrustRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?       @relation("TrustApprovedBy", fields: [approvedById], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, matterId])
@@ -924,19 +927,19 @@ model TrustTransaction {
 
 // Per-matter retainer alert configuration
 model BillingRule {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   tenantId       String
-  matterId       String        @unique  // one rule per matter
+  matterId       String         @unique // one rule per matter
   floorType      AlertFloorType @default(STATIC)
-  floorAmount    Decimal?      @db.Decimal(10, 2)    // used when floorType = STATIC
-  floorPercent   Decimal?      @db.Decimal(5, 4)     // used when floorType = PERCENTAGE (0.25 = 25%)
-  notifyLeadOnly Boolean       @default(false)       // false = notify all assigned
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  floorAmount    Decimal?       @db.Decimal(10, 2) // used when floorType = STATIC
+  floorPercent   Decimal?       @db.Decimal(5, 4) // used when floorType = PERCENTAGE (0.25 = 25%)
+  notifyLeadOnly Boolean        @default(false) // false = notify all assigned
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  matter         Matter        @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matter Matter @relation(fields: [matterId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("billing_rules")
@@ -946,18 +949,18 @@ model BillingRule {
 model Notification {
   id         String           @id @default(cuid())
   tenantId   String
-  userId     String           // recipient
+  userId     String // recipient
   type       NotificationType
   title      String
   body       String
-  entityType String?          // e.g., "TrustTransaction", "BankAccount", "Invoice"
+  entityType String? // e.g., "TrustTransaction", "BankAccount", "Invoice"
   entityId   String?
   isRead     Boolean          @default(false)
   readAt     DateTime?
   createdAt  DateTime         @default(now())
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId, isRead])
   @@index([userId, createdAt])

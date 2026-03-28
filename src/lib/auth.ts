@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -18,6 +17,7 @@ const LOCKOUT_DURATION_MINUTES = parseInt(
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: PrismaAdapter(db) as any,
   session: {
@@ -178,12 +178,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         token.firstName = (user as any).firstName;
         token.lastName = (user as any).lastName;
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
         token.tenantSlug = (user as any).tenantSlug;
         token.mfaEnabled = (user as any).mfaEnabled;
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
       return token;
     },

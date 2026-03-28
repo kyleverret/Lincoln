@@ -37,12 +37,14 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         token.firstName = (user as any).firstName;
         token.lastName = (user as any).lastName;
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
         token.tenantSlug = (user as any).tenantSlug;
         token.mfaEnabled = (user as any).mfaEnabled;
+        /* eslint-enable @typescript-eslint/no-explicit-any */
       }
       return token;
     },
@@ -51,6 +53,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).role = token.role;
         session.user.tenantId = token.tenantId as string | null;
         session.user.tenantSlug = token.tenantSlug as string | null;

@@ -90,8 +90,9 @@ export async function POST(req: Request) {
     });
 
     return Response.json({ success: true });
-  } catch (err: any) {
-    console.error("[plaid] exchange error:", err?.response?.data ?? err);
+  } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.error("[plaid] exchange error:", (err as any)?.response?.data ?? err);
     return Response.json({ error: "Failed to exchange Plaid token" }, { status: 502 });
   }
 }

@@ -46,6 +46,7 @@ const FIRM_ROUTES = [
 // Routes only accessible by SUPER_ADMIN
 const SUPERADMIN_ROUTES = ["/admin/platform"];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default auth((req: NextRequest & { auth: any }) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;

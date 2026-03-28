@@ -139,8 +139,9 @@ export async function POST(
     });
 
     return Response.json({ imported, batchId: importBatchId });
-  } catch (err: any) {
-    console.error("[plaid] sync error:", err?.response?.data ?? err);
+  } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.error("[plaid] sync error:", (err as any)?.response?.data ?? err);
     return Response.json({ error: "Plaid sync failed" }, { status: 502 });
   }
 }

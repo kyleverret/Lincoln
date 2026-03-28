@@ -212,7 +212,7 @@ export function MessagesClient({ contacts, matters, currentUserId, userRole }: P
               <MessageSquare className="h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-lg font-medium">No messages</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Start a conversation by clicking "New Message"
+                Start a conversation by clicking &quot;New Message&quot;
               </p>
             </div>
           ) : (

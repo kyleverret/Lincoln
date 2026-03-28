@@ -14,7 +14,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
-import { UserRole } from "@prisma/client";
+import { UserRole, Prisma } from "@prisma/client";
 import {
   formatDate,
   formatFileSize,
@@ -42,7 +42,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
   const canSeeAll =
     role === UserRole.SUPER_ADMIN || role === UserRole.FIRM_ADMIN;
 
-  const where: any = { tenantId, isActive: true };
+  const where: Prisma.DocumentWhereInput = { tenantId, isActive: true };
 
   if (!canSeeAll) {
     where.OR = [

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Users, Mail, Phone, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { UserRole } from "@prisma/client";
+import { UserRole, Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 
 export const metadata = { title: "Clients" };
@@ -25,7 +25,7 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   const canSeeAll =
     role === UserRole.SUPER_ADMIN || role === UserRole.FIRM_ADMIN;
 
-  const where: any = { tenantId, isActive: true };
+  const where: Prisma.ClientWhereInput = { tenantId, isActive: true };
 
   if (!canSeeAll) {
     // Staff/attorneys only see clients on their assigned matters
