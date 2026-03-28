@@ -197,7 +197,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
         }
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Client header card */}
         <Card>
           <CardContent className="pt-6">

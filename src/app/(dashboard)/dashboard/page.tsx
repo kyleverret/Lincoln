@@ -116,7 +116,7 @@ export default async function DashboardPage() {
         role={role}
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Urgent alert */}
         {urgentMatters > 0 && (
           <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">

@@ -77,16 +77,16 @@ export default async function ClientsPage({ searchParams }: PageProps) {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Search */}
-        <div className="mb-6 flex gap-3">
-          <form className="relative">
+        <div className="mb-6 flex flex-wrap gap-3">
+          <form className="relative flex-1 sm:flex-none">
             <input
               type="text"
               name="q"
               defaultValue={params.q}
               placeholder="Search clients..."
-              className="h-9 rounded-md border border-input bg-background pl-3 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-64"
+              className="h-9 rounded-md border border-input bg-background pl-3 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-64"
             />
           </form>
           <Button asChild variant="outline" size="sm">
@@ -137,15 +137,15 @@ export default async function ClientsPage({ searchParams }: PageProps) {
                             </span>
                           )}
                         </p>
-                        <div className="flex items-center gap-3 mt-0.5">
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                           {client.email && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {client.email}
+                            <span className="text-xs text-muted-foreground flex items-center gap-1 truncate max-w-[160px] sm:max-w-none">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{client.email}</span>
                             </span>
                           )}
                           {client.phone && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1 hidden sm:flex">
                               <Phone className="h-3 w-3" />
                               {client.phone}
                             </span>

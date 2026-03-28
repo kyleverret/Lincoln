@@ -66,7 +66,7 @@ export function NotificationBell() {
       <DropdownMenuContent
         align="end"
         side="right"
-        className="w-80 p-0 max-h-96 overflow-y-auto"
+        className="w-[calc(100vw-2rem)] sm:w-80 p-0 max-h-96 overflow-y-auto"
       >
         <div className="border-b px-4 py-3 flex items-center justify-between sticky top-0 bg-white z-10">
           <p className="text-sm font-semibold">Notifications</p>

@@ -63,7 +63,7 @@ export default function NewUserPage() {
 
   if (created) {
     return (
-      <div className="p-6 max-w-lg mx-auto">
+      <div className="p-4 sm:p-6 max-w-lg mx-auto">
         <Card>
           <CardHeader>
             <CardTitle>User Created</CardTitle>
@@ -123,7 +123,7 @@ export default function NewUserPage() {
   }
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
+    <div className="p-4 sm:p-6 max-w-lg mx-auto">
       <div className="mb-6">
         <Link
           href="/admin"

@@ -12,7 +12,7 @@ export default async function IntakePage() {
   return (
     <div>
       <Header title="Client Intake" role={session.user.role} />
-      <div className="p-6 max-w-2xl">
+      <div className="p-4 sm:p-6 max-w-2xl">
         <IntakeForm tenantId={session.user.tenantId} />
       </div>
     </div>

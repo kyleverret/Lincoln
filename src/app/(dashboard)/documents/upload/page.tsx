@@ -38,7 +38,7 @@ export default async function UploadPage({ searchParams }: PageProps) {
   return (
     <div>
       <Header title="Upload Document" role={role} />
-      <div className="p-6 max-w-2xl">
+      <div className="p-4 sm:p-6 max-w-2xl">
         <DocumentUploadForm
           matters={matters}
           clients={clients}

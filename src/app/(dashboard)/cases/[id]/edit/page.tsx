@@ -149,14 +149,14 @@ export default function CaseEditPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <p className="text-muted-foreground">Loading case...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Edit Case</h1>
         <Button variant="outline" onClick={() => router.push(`/cases/${id}`)}>

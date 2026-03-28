@@ -79,8 +79,8 @@ export default async function ActionItemsPage() {
   const upcoming = cards.filter((c) => c.dueDate && c.dueDate > soon);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
-      <div className="flex items-start justify-between">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-8">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Action Items</h1>
           <p className="text-muted-foreground mt-1">
