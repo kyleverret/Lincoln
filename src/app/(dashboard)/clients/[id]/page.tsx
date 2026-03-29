@@ -31,6 +31,7 @@ import { writeAuditLog } from "@/lib/audit";
 import Link from "next/link";
 import { decryptField } from "@/lib/encryption";
 import { hasPermission } from "@/lib/permissions";
+import { PortalAccessButton } from "@/components/clients/portal-access-button";
 
 export const metadata = { title: "Client Detail" };
 
@@ -160,6 +161,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
     role === UserRole.FIRM_ADMIN ||
     role === UserRole.ATTORNEY;
 
+  const canEnablePortal = hasPermission(role, "CLIENT_ENABLE_PORTAL");
+
   // Determine if user can see PHI (admins and attorneys)
   const canViewPHI =
     role === UserRole.SUPER_ADMIN ||
@@ -177,6 +180,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
         role={role}
         actions={
           <div className="flex items-center gap-2">
+            {canEnablePortal && (
+              <PortalAccessButton
+                clientId={client.id}
+                portalEnabled={client.portalEnabled}
+                clientEmail={client.email}
+              />
+            )}
             {canEdit && (
               <Button asChild size="sm" variant="outline">
                 <Link href={`/clients/${client.id}/edit`}>
