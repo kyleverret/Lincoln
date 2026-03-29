@@ -81,3 +81,54 @@ export async function PATCH(
 
   return Response.json(updated);
 }
+
+/**
+ * DELETE /api/documents/[id] — Soft-delete a document
+ *
+ * Sets isActive = false. The encrypted file remains in storage
+ * for compliance/retention purposes. Only DOCUMENT_DELETE permission
+ * holders can delete documents (SUPER_ADMIN, FIRM_ADMIN, ATTORNEY).
+ */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!hasPermission(session.user.role, "DOCUMENT_DELETE")) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { tenantId, id: userId } = session.user;
+
+  const document = await db.document.findFirst({
+    where: { id, tenantId, isActive: true },
+    select: { id: true, matterId: true, displayName: true, fileName: true },
+  });
+
+  if (!document) {
+    return Response.json({ error: "Document not found" }, { status: 404 });
+  }
+
+  await db.document.update({
+    where: { id },
+    data: { isActive: false },
+  });
+
+  await writeAuditLog({
+    tenantId,
+    userId,
+    matterId: document.matterId ?? undefined,
+    documentId: id,
+    action: AuditAction.DOCUMENT_DELETED,
+    entityType: "Document",
+    entityId: id,
+    description: `Deleted document: ${document.displayName ?? document.fileName}`,
+  });
+
+  return Response.json({ success: true });
+}

@@ -39,6 +39,7 @@ import { DocumentVisibilityToggle } from "@/components/cases/document-visibility
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { LogTimeSection } from "@/components/billing/log-time-section";
 import { StageSelector } from "@/components/cases/stage-selector";
+import { MatterTimeline } from "@/components/cases/matter-timeline";
 import { hasPermission } from "@/lib/permissions";
 
 export const metadata = { title: "Case Detail" };
@@ -325,6 +326,7 @@ export default async function CaseDetailPage({ params }: PageProps) {
               Documents ({matter._count.documents})
             </TabsTrigger>
             <TabsTrigger value="notes">Notes ({matter._count.notes})</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
             {canBilling && (
               <TabsTrigger value="time">Time</TabsTrigger>
             )}
@@ -634,6 +636,18 @@ export default async function CaseDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* Timeline tab */}
+          <TabsContent value="timeline" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Activity Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MatterTimeline matterId={matter.id} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Time tab */}
           {canBilling && (
             <TabsContent value="time" className="mt-4">

@@ -21,6 +21,7 @@ import {
   DOCUMENT_CATEGORY_LABELS,
 } from "@/lib/utils";
 import { hasPermission } from "@/lib/permissions";
+import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
 
 export const metadata = { title: "Documents" };
 
@@ -82,6 +83,7 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
   );
 
   const canUpload = hasPermission(role, "DOCUMENT_UPLOAD");
+  const canDelete = hasPermission(role, "DOCUMENT_DELETE");
 
   // Group by category for display stats
   const byCategory = documents.reduce(
@@ -235,13 +237,19 @@ export default async function DocumentsPage({ searchParams }: PageProps) {
                     <span>v{doc.version}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/api/documents/${doc.id}/download`}>
                       <Download className="h-4 w-4" />
                       Download
                     </Link>
                   </Button>
+                  {canDelete && (
+                    <DeleteDocumentButton
+                      documentId={doc.id}
+                      documentName={doc.displayName}
+                    />
+                  )}
                 </div>
               </div>
             ))}

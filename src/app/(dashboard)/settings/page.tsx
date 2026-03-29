@@ -7,6 +7,8 @@ import { hasPermission } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Building2, User, Shield } from "lucide-react";
 import { FirmNameForm } from "@/components/settings/firm-name-form";
+import { ProfileEditForm } from "@/components/settings/profile-edit-form";
+import { ChangePasswordForm } from "@/components/settings/change-password-form";
 
 export const metadata = { title: "Settings" };
 
@@ -104,7 +106,7 @@ export default async function SettingsPage() {
                 User Profile
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Name</p>
@@ -129,6 +131,11 @@ export default async function SettingsPage() {
                   </div>
                 )}
               </div>
+              <ProfileEditForm
+                firstName={user.firstName}
+                lastName={user.lastName}
+                phone={user.phone}
+              />
             </CardContent>
           </Card>
 
@@ -140,7 +147,7 @@ export default async function SettingsPage() {
                 Security
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -167,6 +174,7 @@ export default async function SettingsPage() {
                   </div>
                 )}
               </div>
+              <ChangePasswordForm />
             </CardContent>
           </Card>
         </div>
