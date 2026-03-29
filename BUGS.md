@@ -156,16 +156,14 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-010: Inconsistent error response format
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** P2
 - **Found:** 2026-03-27 (architecture audit)
+- **Fixed:** 2026-03-28
 - **Principle Violated:** §1.10 Consistent API Contract
-- **Root Cause:** API routes return errors inconsistently:
-  - Some use `{ message: "...", status: 4xx }`
-  - Some use `{ error: "...", status: 4xx }`
-  - Validation errors use `{ message: "...", errors: parsed.error.flatten() }`
-- **Why it was coded this way:** No error response standard was defined before development began. Different routes were written at different times, and each developer (or AI session) used slightly different conventions. Without a documented standard, drift was inevitable.
-- **Resolution:** PENDING — Standardize all routes to use `{ error: string, details?: object }`.
+- **Root Cause:** Early routes mixed `{ message: "..." }` and `{ error: "..." }` formats.
+- **Why it was coded this way:** No error response standard was defined before development began.
+- **Resolution:** All API routes now use `{ error: string, details?: object }` consistently. Validated: grep for `json({ message:` in src/app/api returns zero matches.
 
 ---
 
@@ -182,17 +180,14 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-012: Decimal precision loss in billing calculations
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** P2
 - **Found:** 2026-03-27 (architecture audit)
+- **Fixed:** 2026-03-28
 - **Principle Violated:** §2.6 Decimal Precision for Financial Data
-- **Root Cause:** Billing routes convert Prisma `Decimal` values to JavaScript `number` for arithmetic:
-  ```typescript
-  const newAmountPaid = Number(invoice.amountPaid) + amount;
-  ```
-  JavaScript `number` is IEEE 754 double-precision float. For most real-world invoice amounts this is fine, but it can produce rounding errors (e.g., `0.1 + 0.2 = 0.30000000000000004`).
-- **Why it was coded this way:** JavaScript doesn't have a native Decimal type. The developer used the simplest approach (`Number()` conversion) without considering precision implications. Prisma's `Decimal` type wraps `decimal.js` but requires explicit use of its arithmetic methods.
-- **Resolution:** PENDING — Use Prisma Decimal methods or a library like `decimal.js` for all monetary arithmetic.
+- **Root Cause:** Early billing code used `Number(invoice.amountPaid) + amount` (float arithmetic).
+- **Why it was coded this way:** Developer used simplest `Number()` conversion without considering Prisma's `decimal.js` wrapper.
+- **Resolution:** Payment record logic uses `new Decimal(invoice.amountPaid).add(new Decimal(amount))` and `.gte(new Decimal(invoice.totalAmount))` — proper fixed-point arithmetic throughout. Imports `Decimal` from `@prisma/client/runtime/library`.
 
 ---
 
@@ -479,16 +474,16 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 | Status | Count |
 |--------|-------|
-| FIXED | 27 |
+| FIXED | 29 |
 | OPEN | 2 |
 | DEFERRED | 4 |
-| **Total** | **33** |
+| **Total** | **35** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 0 | 6 |
 | P1 | 0 | 12 |
-| P2 | 0 | 10 |
+| P2 | 0 | 12 |
 | P3 | 2 | 0 |
 
 ---
