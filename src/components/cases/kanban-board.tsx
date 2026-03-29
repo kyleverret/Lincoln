@@ -68,6 +68,7 @@ export interface KanbanColumnData {
   name: string;
   color: string;
   position: number;
+  isTerminal: boolean;
   wipLimit: number | null;
   cards: KanbanCardData[];
 }
@@ -109,11 +110,13 @@ const COLUMN_COLORS = [
 function KanbanCard({
   card,
   isDragging,
+  isTerminalColumn = false,
 }: {
   card: KanbanCardData;
   isDragging?: boolean;
+  isTerminalColumn?: boolean;
 }) {
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const isOverdue = !isTerminalColumn && card.dueDate && new Date(card.dueDate) < new Date();
   const isUrgent = card.priority === "URGENT";
 
   return (
@@ -215,7 +218,7 @@ function KanbanCard({
 // Sortable card wrapper
 // ---------------------------------------------------------------------------
 
-function SortableCard({ card }: { card: KanbanCardData }) {
+function SortableCard({ card, isTerminalColumn }: { card: KanbanCardData; isTerminalColumn: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: card.id });
 
@@ -226,7 +229,7 @@ function SortableCard({ card }: { card: KanbanCardData }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <KanbanCard card={card} isDragging={isDragging} />
+      <KanbanCard card={card} isDragging={isDragging} isTerminalColumn={isTerminalColumn} />
     </div>
   );
 }
@@ -432,7 +435,7 @@ function KanbanColumn({
       <div ref={setDroppableRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => (
-            <SortableCard key={card.id} card={card} />
+            <SortableCard key={card.id} card={card} isTerminalColumn={column.isTerminal} />
           ))}
         </SortableContext>
       </div>
@@ -455,7 +458,8 @@ function MobileCard({
   currentColumnId: string;
   onMove: (cardId: string, targetColumnId: string) => Promise<void>;
 }) {
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const currentColumn = columns.find((c) => c.id === currentColumnId);
+  const isOverdue = !currentColumn?.isTerminal && card.dueDate && new Date(card.dueDate) < new Date();
   const isUrgent = card.priority === "URGENT";
   const otherColumns = columns.filter((c) => c.id !== currentColumnId);
 
@@ -896,7 +900,14 @@ export function KanbanBoard({
       </div>
 
       <DragOverlay>
-        {activeCard && <KanbanCard card={activeCard} />}
+        {activeCard && (
+          <KanbanCard
+            card={activeCard}
+            isTerminalColumn={
+              columns.find((c) => c.cards.some((card) => card.id === activeCard.id))?.isTerminal ?? false
+            }
+          />
+        )}
       </DragOverlay>
     </DndContext>
   );

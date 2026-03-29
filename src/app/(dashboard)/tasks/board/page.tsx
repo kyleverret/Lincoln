@@ -83,6 +83,7 @@ export default async function TaskBoardPage() {
     name: col.name,
     color: col.color,
     position: col.position,
+    isTerminal: col.isTerminal,
     wipLimit: col.wipLimit,
     cards: col.cards.map((card) => {
       const primaryClient = card.matter.clients[0]?.client;
