@@ -509,18 +509,31 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+### BUG-036: Middleware blocks CLIENT role from /api/* routes — breaks portal client components
+
+- **Status:** FIXED
+- **Severity:** P0
+- **Found:** 2026-03-29 (middleware audit)
+- **Fixed:** 2026-03-29 (commit `84ba995`)
+- **Principle Violated:** Security invariant §1 — Correct auth enforcement without collateral damage
+- **Root Cause:** The middleware redirected all `CLIENT` role users to `/portal` for any path not starting with `/portal`. API routes (`/api/*`) are called by fetch from portal client components (e.g., `MessagesClient` → `GET /api/messages`). These fetch calls would receive a 302 redirect to `/portal` (HTML) instead of JSON, silently breaking all client-side data loading in the portal.
+- **Why it was coded this way:** The CLIENT routing rule was written to enforce "clients stay in the portal" but didn't account for the fact that client-side components make XHR/fetch calls to API routes. The API routes themselves enforce CLIENT permissions correctly via session checks.
+- **Resolution:** Updated middleware CLIENT check to also allow paths starting with `/api/`. The individual API route handlers already validate permissions for CLIENT role.
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
-| FIXED | 32 |
+| FIXED | 33 |
 | OPEN | 2 |
 | DEFERRED | 4 |
-| **Total** | **38** |
+| **Total** | **39** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
-| P0 | 0 | 6 |
+| P0 | 0 | 7 |
 | P1 | 0 | 14 |
 | P2 | 0 | 13 |
 | P3 | 2 | 0 |
