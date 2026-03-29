@@ -8,13 +8,15 @@
 
 ## 1. Overview
 
-Lincoln is a multi-tenant law firm case management platform. It enables law firms to manage matters, clients, documents, and staff workflows — all within a HIPAA-compliant environment. Each law firm operates as an isolated tenant; their data is never visible to other tenants.
+Lincoln is a multi-tenant law firm case management platform. It enables law firms to manage matters, clients, documents, and staff workflows — all within a HIPAA-compliant, SOC-2, and ISO 27001 compliant environment. Each law firm operates as an isolated tenant; their data is never visible to other tenants.
 
 ### 1.1 Goals
 
 - Provide law firms a secure, web-based practice management system
 - Enable clients to track their matters and communicate with counsel via a dedicated portal
 - Meet HIPAA technical safeguard requirements from day one
+- Meet SOC-2 Security, Availability, Confidentiality, Process Integrity Trust Criteria
+- Meet ISO 27001 Information Security Standard
 - Support multiple independent firms on shared infrastructure with full data isolation
 
 ### 1.2 Non-Goals (v1)
@@ -625,6 +627,9 @@ The following are explicitly out of scope for the initial release:
 > **To promote an item:**
 > Move the bullet from this section into the appropriate P0–P3 tier in §11 Priority Tiers,
 > then tell Claude — it will pick it up in the next working session.
+
+
+
 
 ### UX / Dashboard
 *(none yet)*
