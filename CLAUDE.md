@@ -123,6 +123,7 @@ src/
     storage.ts       # Document encrypt-then-store abstraction
     utils.ts         # cn(), date helpers
     validations/     # Zod schemas shared between client and server
+    security/        # SOC-2/ISO 27001 controls (password-policy, session-manager, security-monitor, compliance)
     trust/           # IOLTA trust accounting helpers (notifications.ts)
 
 prisma/

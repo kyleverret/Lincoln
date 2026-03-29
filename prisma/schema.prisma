@@ -265,6 +265,7 @@ model Tenant {
   bankAccounts      BankAccount[]
   trustTransactions TrustTransaction[]
   billingRules      BillingRule[]
+  securityAlerts    SecurityAlert[]
   notifications     Notification[]
 
   @@map("tenants")
@@ -295,6 +296,7 @@ model User {
   lockedUntil         DateTime?
   mustChangePassword  Boolean   @default(false)
   passwordChangedAt   DateTime?
+  passwordHistory     String?   // JSON array of { hash, changedAt } for password reuse prevention (SOC-2 CC6.1)
   // Portal token for magic link (clients)
   portalToken         String?   @unique
   portalTokenExpiry   DateTime?
@@ -965,4 +967,33 @@ model Notification {
   @@index([tenantId, userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Security Alerts (SOC-2 CC7.2 / ISO 27001 A.12.4.1)
+// ---------------------------------------------------------------------------
+
+model SecurityAlert {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  userId       String?
+  category     String   // BRUTE_FORCE, BULK_ACCESS, PRIVILEGE_ESCALATION, OFF_HOURS_ACCESS, etc.
+  severity     String   // LOW, MEDIUM, HIGH, CRITICAL
+  title        String
+  description  String
+  metadata     String?  // JSON blob with event-specific data
+  ipAddress    String?
+  status       String   @default("OPEN") // OPEN, ACKNOWLEDGED, RESOLVED, DISMISSED
+  resolvedById String?
+  resolvedAt   DateTime?
+  resolution   String?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, severity])
+  @@index([tenantId, createdAt])
+  @@index([category, createdAt])
+  @@map("security_alerts")
 }

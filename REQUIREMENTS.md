@@ -257,7 +257,100 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | HC-09 | Audit log retention minimum 6 years |
 | HC-10 | Incident response plan in place before handling PHI |
 
-### 4.3 Multi-Tenancy and Data Isolation
+### 4.3 SOC-2 Trust Service Criteria
+
+Lincoln must satisfy the Security, Availability, Confidentiality, Processing Integrity, and Privacy trust criteria defined by AICPA SOC-2 Type II.
+
+#### 4.3.1 Security (Common Criteria)
+
+| ID | Criteria | Requirement | Technical Control |
+|----|----------|-------------|-------------------|
+| S2-CC6.1 | Logical Access Controls | Role-based access with least privilege; password policy enforcement | RBAC in `permissions.ts` (91 rules, 5 role tiers); password expiration (90 days), history (last 5), complexity (12+ chars, mixed case, digit, special) in `security/password-policy.ts` |
+| S2-CC6.2 | User Authentication | Multi-factor authentication available for all users | TOTP MFA via `otplib` in `auth.ts`; per-tenant MFA enforcement planned |
+| S2-CC6.3 | Account Protection | Automated lockout after failed login attempts | 5-attempt lockout with 30-minute duration in `auth.ts`; audit logged |
+| S2-CC6.6 | Access Revocation | Immediate session termination on deactivation | Session revocation list in `security/session-manager.ts`; `revokeUserSessions()` and `revokeTenantSessions()` |
+| S2-CC7.1 | System Monitoring | Comprehensive, immutable audit trail | 50+ event types in `audit.ts`; Prisma middleware blocks delete/update on AuditLog; 6-year retention |
+| S2-CC7.2 | Anomaly Detection | Automated detection of security-relevant events | `security/security-monitor.ts`: brute force, bulk access, off-hours access, privilege escalation detection |
+| S2-CC7.3 | Security Event Evaluation | Alert generation and tracking for security events | `SecurityAlert` model with severity levels; admin dashboard at `/api/admin/security/alerts` |
+| S2-CC7.4 | Incident Response | Security alerts reviewed and resolved by authorized personnel | Alert resolution workflow with `resolvedById`, `resolution`, `resolvedAt` tracking |
+| S2-CC8.1 | Change Management | Configuration changes tracked and audited | `trackConfigurationChange()` in security monitor; git-based code change tracking |
+| S2-CC9.1 | Session Management | Time-limited sessions with concurrent session limits | 8-hour JWT expiry; max 3 concurrent sessions per user; activity tracking |
+
+#### 4.3.2 Availability
+
+| ID | Criteria | Requirement | Technical Control |
+|----|----------|-------------|-------------------|
+| S2-A1.1 | System Availability | Health monitoring and alerting | `GET /api/health` with DB connectivity check; DO App Platform health checks |
+| S2-A1.2 | Recovery Procedures | Backup and disaster recovery | DO Managed PostgreSQL daily backups; RTO ~15 min, RPO ~1 hour |
+| S2-A1.3 | Recovery Testing | Periodic validation of recovery procedures | Documented in `DEPLOYMENT-DO.md`; backup verification planned (D-010) |
+
+#### 4.3.3 Confidentiality
+
+| ID | Criteria | Requirement | Technical Control |
+|----|----------|-------------|-------------------|
+| S2-C1.1 | Data Classification | All data fields classified by sensitivity | 5-tier classification in ARCHITECTURE.md §2.5: PUBLIC, INTERNAL, CONFIDENTIAL, PHI/PII, SECRET |
+| S2-C1.2 | Encryption at Rest | All PHI/PII encrypted before storage | AES-256-GCM field-level encryption via `encryption.ts`; per-tenant HKDF key derivation |
+| S2-C1.3 | Encryption in Transit | TLS for all data transmission | HSTS header (max-age=63072000); TLS 1.2+ enforced by DO App Platform |
+| S2-C1.4 | Data Disposal | Secure handling of data end-of-life | Soft deletes for compliance data; audit log immutability; 6-year retention |
+
+#### 4.3.4 Processing Integrity
+
+| ID | Criteria | Requirement | Technical Control |
+|----|----------|-------------|-------------------|
+| S2-PI1.1 | Input Validation | All inputs validated at system boundaries | Zod schemas in `lib/validations/`; server-side validation on all API routes |
+| S2-PI1.2 | Data Integrity | Integrity verification on sensitive data | AES-256-GCM auth tags; SHA-256 document checksums verified on download with constant-time comparison |
+| S2-PI1.3 | Financial Precision | Decimal precision for monetary values | `Decimal(10,2)` in schema; Prisma Decimal type; no floating-point arithmetic for money |
+| S2-PI1.4 | Error Handling | Secure error responses without information leakage | Generic error messages to clients; detailed logging server-side only; no stack traces in responses |
+
+#### 4.3.5 Privacy
+
+| ID | Criteria | Requirement | Technical Control |
+|----|----------|-------------|-------------------|
+| S2-P1.1 | Data Minimization | Collect only necessary data | SSN last 4 only; encrypted DOB/address; no unnecessary analytics |
+| S2-P1.2 | Purpose Limitation | Data used only for stated purpose | Tenant-scoped queries; no cross-tenant analytics; audit logs for compliance only |
+| S2-P1.3 | Access Logging | All PHI/PII access logged | `writeAuditLog()` on every sensitive data read/write; CLIENT_ACCESSED, MATTER_ACCESSED, etc. |
+| S2-P1.4 | Retention Policy | Data retained only as long as required | 6-year audit retention (HIPAA); soft deletes with defined retention periods |
+
+### 4.4 ISO 27001 Information Security Controls
+
+Lincoln implements controls from ISO 27001:2022 Annex A. The following table maps ISO controls to technical implementations.
+
+#### 4.4.1 Organizational Controls (A.5)
+
+| ID | Control | Requirement | Implementation |
+|----|---------|-------------|----------------|
+| ISO-A.5.1 | Information Security Policies | Documented security policies | ARCHITECTURE.md §3 (Security Architecture); CLAUDE.md (Security Invariants); pre-commit review protocol |
+
+#### 4.4.2 People Controls (A.6)
+
+| ID | Control | Requirement | Implementation |
+|----|---------|-------------|----------------|
+| ISO-A.6.1 | Screening | Background check before access | Organizational process; system enforces mustChangePassword on first login |
+
+#### 4.4.3 Technological Controls (A.8)
+
+| ID | Control | Requirement | Implementation |
+|----|---------|-------------|----------------|
+| ISO-A.8.1 | User Endpoint Devices | Secure session management | JWT with 8-hour expiry; no persistent tokens; `Cache-Control: no-store` on sensitive responses |
+| ISO-A.8.2 | Privileged Access Rights | Controlled admin access | SUPER_ADMIN and FIRM_ADMIN roles; all admin actions audit logged; privilege escalation monitoring |
+| ISO-A.8.3 | Information Access Restriction | Multi-tenant isolation | `tenantId` filter on every query; RLS policies; middleware role-based routing |
+| ISO-A.8.5 | Secure Authentication | Strong authentication mechanisms | bcrypt cost 12; TOTP MFA; password policy (12+ chars, complexity, expiration, history); account lockout |
+| ISO-A.8.9 | Configuration Management | Tracked configuration changes | `trackConfigurationChange()` alerts; settings changes audit logged |
+| ISO-A.8.15 | Logging | Comprehensive event logging | Immutable AuditLog with 50+ event types; IP, user agent, timestamp captured |
+| ISO-A.8.16 | Monitoring Activities | Security event monitoring | `security/security-monitor.ts`: automated anomaly detection with alert generation |
+| ISO-A.8.24 | Use of Cryptography | Approved cryptographic controls | AES-256-GCM (NIST); HKDF-SHA256 key derivation; bcrypt password hashing; SHA-256 checksums |
+| ISO-A.8.25 | Secure Development | Secure SDLC practices | Pre-commit compliance checklist (11 checks); 5 risk-pattern scans; Zod input validation |
+| ISO-A.8.26 | Application Security | Security headers and CSP | HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Permissions-Policy in next.config.ts |
+
+#### 4.4.4 Compliance Controls (A.5.34-36)
+
+| ID | Control | Requirement | Implementation |
+|----|---------|-------------|----------------|
+| ISO-A.5.34 | Privacy and PII Protection | PHI/PII encryption and access controls | AES-256-GCM encryption; RBAC; audit logging; data classification |
+| ISO-A.5.35 | Independent Review | Audit capability for external review | `GET /api/admin/compliance` generates automated compliance report; `GET /api/admin/compliance/audit-export` for auditor data export |
+| ISO-A.5.36 | Compliance with Policies | Automated compliance checking | `generateComplianceReport()` runs automated checks: password expiration, MFA adoption, audit log health, alert status |
+
+### 4.5 Multi-Tenancy and Data Isolation
 
 | ID | Requirement |
 |----|-------------|
@@ -268,7 +361,7 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | MT-05 | Document storage paths are namespaced by tenant ID |
 | MT-06 | One tenant cannot see, search, or reference data belonging to another tenant |
 
-### 4.4 Performance
+### 4.6 Performance
 
 | ID | Requirement |
 |----|-------------|
@@ -278,7 +371,7 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | PF-04 | ECS auto-scaling maintains p99 response time < 2s at 10x baseline traffic |
 | PF-05 | Kanban board loads and is interactive within 2s for boards with up to 200 cards |
 
-### 4.5 Availability and Reliability
+### 4.7 Availability and Reliability
 
 | ID | Requirement |
 |----|-------------|
@@ -290,7 +383,7 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | AV-06 | Health check endpoint (`/api/health`) verifies application + DB connectivity |
 | AV-07 | DO App Platform alerts notify on deploy failures and health check failures |
 
-### 4.6 Scalability
+### 4.8 Scalability
 
 | ID | Requirement |
 |----|-------------|
@@ -376,6 +469,10 @@ Lincoln is a multi-tenant law firm case management platform. It enables law firm
 | GET | `/api/notifications` | List notifications (supports ?unread=true) |
 | PATCH | `/api/notifications/[id]/read` | Mark a notification read |
 | GET/POST | `/api/contacts` | List / create contacts |
+| GET | `/api/admin/compliance` | Compliance dashboard with automated control checks (SOC-2/ISO/HIPAA) |
+| GET | `/api/admin/compliance/audit-export` | Export audit logs for external auditors (date range, pagination) |
+| GET/POST | `/api/admin/security/alerts` | List / resolve security alerts |
+| GET/POST | `/api/admin/security/sessions` | List active sessions / revoke user sessions |
 
 All endpoints return `401` if unauthenticated, `403` if the user lacks the required permission, and `404` if the resource does not exist within the user's tenant.
 
@@ -402,6 +499,7 @@ All endpoints return `401` if unauthenticated, `403` if the user lacks the requi
 | `TimeEntry` | id, tenantId, matterId, userId, hours, rate, description, date |
 | `BillingRule` | id, tenantId, role, ratePerHour |
 | `Notification` | id, tenantId, userId, type, title, body, readAt, resourceId, resourceType |
+| `SecurityAlert` | id, tenantId, userId, category, severity, title, description, metadata, ipAddress, status, resolvedById, resolvedAt, resolution |
 
 ---
 
