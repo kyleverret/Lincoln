@@ -540,6 +540,108 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+## SOC-2 / ISO 27001 Compliance Gaps
+
+**Added:** 2026-03-29
+
+The following items are tracked as compliance gaps that need resolution before SOC-2 Type II or ISO 27001 certification audit.
+
+### BUG-040
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P1 |
+| **Component** | `src/lib/auth.ts` |
+| **Description** | MFA enrollment UI not implemented — users cannot enable TOTP via the application |
+| **Compliance** | SOC-2 CC6.2, ISO A.8.5 |
+| **Principle Violated** | §4.2 Privacy as Default |
+| **Root Cause Category** | MVP Deferral |
+| **Root Cause** | MFA backend (auth.ts + otplib) was built but QR code enrollment UI was deferred for MVP |
+| **Trigger** | SOC-2 audit or first tenant requests mandatory MFA (D-012) |
+
+---
+
+### BUG-041
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P1 |
+| **Component** | `prisma/schema.prisma` (Tenant model) |
+| **Description** | No per-tenant MFA enforcement flag — firm admins cannot require MFA for all users |
+| **Compliance** | SOC-2 CC6.2, ISO A.8.5 |
+| **Principle Violated** | §1.5 Least Privilege |
+| **Root Cause Category** | MVP Deferral |
+| **Root Cause** | Tenant settings stored as JSON but `mfaRequired` not yet added |
+| **Trigger** | First tenant requires mandatory MFA (D-013) |
+
+---
+
+### BUG-042
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P1 |
+| **Component** | `src/lib/security/session-manager.ts`, `security-monitor.ts` |
+| **Description** | In-memory session revocation and security monitoring only works for single-instance deployments |
+| **Compliance** | SOC-2 CC6.6, CC7.2 |
+| **Principle Violated** | §1.8 12-Factor (Stateless processes) |
+| **Root Cause Category** | MVP Deferral |
+| **Root Cause** | Redis dependency avoided for MVP simplicity; single DO App Platform instance sufficient currently |
+| **Trigger** | Multi-instance deployment / horizontal scaling (D-011) |
+
+---
+
+### BUG-043
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P0 |
+| **Component** | Platform-wide |
+| **Description** | No penetration testing conducted — required before handling real PHI |
+| **Compliance** | SOC-2 CC7.1, ISO A.8.25, HIPAA §164.308(a)(8) |
+| **Principle Violated** | §3.1 Zero Trust |
+| **Root Cause Category** | MVP Deferral |
+| **Root Cause** | Application still in development; pentest scheduled for pre-production milestone |
+| **Trigger** | Before first production deployment with real PHI (D-015) |
+
+---
+
+### BUG-044
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P2 |
+| **Component** | `src/lib/audit.ts` |
+| **Description** | No automated audit log archival to cold storage — 6-year retention requires archival pipeline |
+| **Compliance** | HIPAA §164.312(b), ISO A.18.1.3 |
+| **Principle Violated** | §4.10 Retention and Disposal |
+| **Root Cause Category** | MVP Deferral |
+| **Root Cause** | Current volume is small; archival pipeline deferred until table size becomes a concern |
+| **Trigger** | Audit log table exceeds 10GB or approaches 6-year mark (D-014) |
+
+---
+
+### BUG-045
+
+| Field | Value |
+|-------|-------|
+| **Status** | `FLAGGED` |
+| **Severity** | P1 |
+| **Component** | `src/lib/auth.ts` |
+| **Description** | Password expiration not enforced on login — `isPasswordExpired()` check not yet integrated into auth flow |
+| **Compliance** | SOC-2 CC6.1, ISO A.9.4.3 |
+| **Principle Violated** | §1.4 Fail-Safe Defaults |
+| **Root Cause Category** | Write/Read Asymmetry |
+| **Root Cause** | Password policy module created but auth.ts integration deferred to avoid breaking existing sessions |
+| **Trigger** | Before SOC-2 audit; integrate `isPasswordExpired()` check in `authorize()` callback |
+
+---
+
 ## Appendix: Common Root Cause Categories
 
 Understanding *why* bugs happen helps prevent them:

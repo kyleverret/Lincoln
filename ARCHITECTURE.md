@@ -412,6 +412,123 @@ Next.js middleware runs in Edge Runtime. Files imported by middleware must not u
 
 ---
 
+## 5B. SOC-2 & ISO 27001 Technical Controls
+
+**Added:** 2026-03-29
+
+This section documents the technical controls implemented to satisfy SOC-2 Trust Service Criteria and ISO 27001 Annex A requirements. All controls are in `src/lib/security/`.
+
+### 5B.1 Security Module Architecture
+
+```
+src/lib/security/
+  index.ts                 # Barrel exports for all security modules
+  password-policy.ts       # SOC-2 CC6.1 / ISO A.9.4.3 — Password lifecycle management
+  session-manager.ts       # SOC-2 CC6.1, CC6.6 / ISO A.9.2.1 — Session tracking & revocation
+  security-monitor.ts      # SOC-2 CC7.2, CC7.3 / ISO A.12.4.1 — Anomaly detection & alerts
+  compliance.ts            # SOC-2 CC4.1 / ISO A.18.2 — Automated compliance reporting
+```
+
+### 5B.2 Password Policy (SOC-2 CC6.1 / ISO A.9.4.3)
+
+| Control | Default | Env Override |
+|---------|---------|-------------|
+| Maximum password age | 90 days | `PASSWORD_MAX_AGE_DAYS` |
+| Minimum password age | 1 day | `PASSWORD_MIN_AGE_DAYS` |
+| Password history depth | 5 | `PASSWORD_HISTORY_SIZE` |
+| Minimum length | 12 characters | — (hardcoded) |
+| Complexity | Uppercase + lowercase + digit + special | — (hardcoded) |
+| bcrypt cost factor | 12 | — (hardcoded) |
+
+**Implementation:** Password history stored as JSON in `User.passwordHistory` field. On password change, `validatePasswordChange()` checks complexity, minimum age, and history. `rotatePassword()` hashes and updates the user record with history.
+
+**Integration points:**
+- `auth.ts` — Check `isPasswordExpired()` on login; set `mustChangePassword` flag
+- Password change API — Call `validatePasswordChange()` before allowing change
+- Compliance report — `findExpiredPasswords()` identifies non-compliant users
+
+### 5B.3 Session Management (SOC-2 CC6.1, CC6.6 / ISO A.9.2.1)
+
+| Control | Default | Env Override |
+|---------|---------|-------------|
+| Session expiry | 8 hours | `SESSION_MAX_AGE` |
+| Concurrent session limit | 3 per user | `MAX_CONCURRENT_SESSIONS` |
+| Revocation TTL | 9 hours | — (exceeds JWT max age) |
+
+**Revocation architecture:** NextAuth uses stateless JWTs with no server-side session store. The session manager maintains an in-memory revocation list checked on every authenticated request. When a user/tenant is revoked, their JWT remains cryptographically valid but is rejected by the revocation check.
+
+**Key functions:**
+- `registerSession()` — Track new session, evict oldest if limit exceeded
+- `revokeUserSessions()` — Block all sessions for a user (deactivation, password change)
+- `revokeTenantSessions()` — Block all sessions for a tenant (suspension)
+- `isSessionRevoked()` — Check revocation list (call in auth middleware)
+
+**Scaling note:** In-memory store is single-instance only. For multi-instance deployments, replace with Redis (see D-011).
+
+### 5B.4 Security Monitoring (SOC-2 CC7.2, CC7.3 / ISO A.12.4.1)
+
+| Detection Pattern | Threshold | Window | Severity |
+|-------------------|-----------|--------|----------|
+| Failed logins per IP | 3 | 15 min | MEDIUM→HIGH |
+| Failed logins per user | 3 | 15 min | HIGH |
+| Bulk data access | 100 records | 1 hour | HIGH |
+| Off-hours access | Outside business hours | — | LOW |
+| Privilege escalation | Any 403 response | — | MEDIUM |
+| Configuration change | Any admin setting | — | MEDIUM |
+
+**Alert persistence:** Alerts are written to the `SecurityAlert` table with severity, category, metadata, and status tracking. HIGH/CRITICAL alerts also write to the immutable audit log.
+
+**Alert lifecycle:** OPEN → ACKNOWLEDGED → RESOLVED (with `resolvedById`, `resolution` text, `resolvedAt` timestamp).
+
+### 5B.5 Compliance Reporting (SOC-2 CC4.1 / ISO A.18.2)
+
+`generateComplianceReport()` runs automated checks and produces a structured report:
+
+| Check | What It Verifies |
+|-------|-----------------|
+| Password expiration | All active users have passwords within max age |
+| MFA adoption | Percentage of users with TOTP enabled |
+| Audit log health | Recent entries exist; immutability enforced |
+| Security alert status | Open/resolved alert counts |
+| Encryption controls | AES-256-GCM + HKDF documented |
+| Session management | Active session count, revocation status |
+
+**API endpoints:**
+- `GET /api/admin/compliance` — Full compliance report (FIRM_ADMIN+)
+- `GET /api/admin/compliance/audit-export` — Paginated audit log export with date filtering
+- `GET /api/admin/security/alerts` — Open security alerts
+- `POST /api/admin/security/alerts` — Resolve an alert
+- `GET /api/admin/security/sessions` — Active sessions for tenant
+- `POST /api/admin/security/sessions` — Revoke sessions for a user
+
+### 5B.6 Compliance Control Matrix
+
+| Framework | Control ID | Description | Module | Status |
+|-----------|-----------|-------------|--------|--------|
+| SOC-2 | CC6.1 | Logical access controls | `permissions.ts`, `password-policy.ts` | Implemented |
+| SOC-2 | CC6.2 | User authentication (MFA) | `auth.ts` | Implemented (enrollment UI pending) |
+| SOC-2 | CC6.3 | Account lockout | `auth.ts` | Implemented |
+| SOC-2 | CC6.6 | Access revocation | `session-manager.ts` | Implemented |
+| SOC-2 | CC7.1 | Audit logging | `audit.ts`, `db.ts` | Implemented |
+| SOC-2 | CC7.2 | Anomaly detection | `security-monitor.ts` | Implemented |
+| SOC-2 | CC7.3 | Security event evaluation | `security-monitor.ts` | Implemented |
+| SOC-2 | CC8.1 | Confidentiality (encryption) | `encryption.ts` | Implemented |
+| SOC-2 | CC9.1 | Session management | `session-manager.ts` | Implemented |
+| SOC-2 | A1.1 | Availability monitoring | `/api/health` | Implemented |
+| ISO 27001 | A.8.3 | Information access restriction | `middleware.ts`, `permissions.ts` | Implemented |
+| ISO 27001 | A.8.5 | Secure authentication | `auth.ts`, `password-policy.ts` | Implemented |
+| ISO 27001 | A.8.15 | Event logging | `audit.ts` | Implemented |
+| ISO 27001 | A.8.16 | Monitoring activities | `security-monitor.ts` | Implemented |
+| ISO 27001 | A.8.24 | Cryptographic controls | `encryption.ts` | Implemented |
+| ISO 27001 | A.8.25 | Secure development lifecycle | ARCHITECTURE.md §6 | Implemented |
+| HIPAA | §164.312(a) | Access control | `auth.ts`, `permissions.ts` | Implemented |
+| HIPAA | §164.312(b) | Audit controls | `audit.ts` | Implemented |
+| HIPAA | §164.312(c) | Integrity controls | `encryption.ts` (GCM auth tags) | Implemented |
+| HIPAA | §164.312(d) | Authentication | `auth.ts` (MFA, lockout) | Implemented |
+| HIPAA | §164.312(e) | Transmission security | HSTS, TLS 1.2+ | Implemented |
+
+---
+
 ## 6. Pre-Commit Review Protocol
 
 Every code change — before committing — must pass the compliance checklist AND the risk flag review. This is not optional. Skipping this protocol is how bugs get shipped.
@@ -505,6 +622,9 @@ When code makes a deliberate assumption, it must be documented both in the code 
 | A-006 | System clock is accurate for JWT expiry and lockout timers | `auth.ts`, middleware | Auth bypass or permanent lockout | Multi-region deployment |
 | A-007 | `decimal.js` precision matches PostgreSQL `Decimal(10,2)` | Billing routes | Rounding errors in invoices | Invoice amounts > $99,999.99 |
 | A-008 | Audit log volume fits in single PostgreSQL table | `audit.ts` | Slow queries, storage exhaustion | > 1M audit entries |
+| A-009 | In-memory session revocation list is consistent (single instance) | `security/session-manager.ts` | Revoked sessions not blocked on other instances | Multi-instance deployment |
+| A-010 | In-memory security monitoring counters are consistent (single instance) | `security/security-monitor.ts` | Missed detection across instances | Multi-instance deployment |
+| A-011 | UTC business hours (12-02) approximate US Eastern business hours | `security/security-monitor.ts` | False positive off-hours alerts | Multi-timezone tenant support |
 
 ### 6.4 Deferral Register
 
@@ -522,6 +642,11 @@ Active deferrals — features or controls intentionally postponed with defined t
 | D-008 | CSRF protection on form submissions | Next.js provides some built-in protection | P2 | Security audit or penetration test |
 | D-009 | Database connection pooling (PgBouncer) | Single-instance sufficient now | P3 | > 50 concurrent users |
 | D-010 | Automated backup verification | Relying on DO managed backups | P1 | First production data loss concern |
+| D-011 | Redis-backed session revocation and security monitoring | In-memory stores sufficient for single instance | P1 | Multi-instance deployment (> 1 container) |
+| D-012 | MFA enrollment UI with QR code generation | MFA backend ready; UI not built | P1 | SOC-2 audit or tenant MFA enforcement request |
+| D-013 | Per-tenant MFA enforcement toggle | Tenant model lacks `mfaRequired` flag | P1 | First tenant requests mandatory MFA |
+| D-014 | Automated audit log archival to cold storage | Retention policy documented; no archival pipeline | P2 | Audit log table exceeds 10GB or 6-year mark approached |
+| D-015 | Penetration testing | No formal security testing conducted | P0 | Before first production deployment with real PHI |
 
 ### 6.5 Commit Message Protocol
 
