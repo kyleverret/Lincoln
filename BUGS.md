@@ -483,19 +483,32 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+### BUG-034: Portal messages page missing — nav link caused 404 for all clients
+
+- **Status:** FIXED
+- **Severity:** P1
+- **Found:** 2026-03-29 (portal navigation audit)
+- **Fixed:** 2026-03-29 (commit `8116b47`)
+- **Principle Violated:** CP-06 — Clients can send messages to the attorneys on their matter
+- **Root Cause:** The portal layout nav bar had a link to `/portal/messages` but no page existed at that route. Every client who clicked Messages received a 404.
+- **Why it was coded this way:** The nav link was added as part of the portal layout when building the overall navigation, but the messages page implementation was deferred and never completed.
+- **Resolution:** Created `src/app/(portal)/portal/messages/page.tsx`. Queries the client's active matter assignments to build a deduplicated contact list of assigned attorneys, then renders the existing `MessagesClient` component (which already handles `UserRole.CLIENT` correctly via the `/api/messages` endpoint).
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
-| FIXED | 30 |
+| FIXED | 31 |
 | OPEN | 2 |
 | DEFERRED | 4 |
-| **Total** | **36** |
+| **Total** | **37** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 0 | 6 |
-| P1 | 0 | 12 |
+| P1 | 0 | 13 |
 | P2 | 0 | 13 |
 | P3 | 2 | 0 |
 
