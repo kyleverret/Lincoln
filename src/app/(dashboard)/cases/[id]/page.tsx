@@ -11,14 +11,12 @@ import {
   Calendar,
   DollarSign,
   Users,
-  FolderOpen,
   FileText,
   Edit,
   Lock,
   Building2,
   Gavel,
   CheckSquare,
-  Clock,
 
 } from "lucide-react";
 import {

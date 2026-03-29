@@ -16,7 +16,7 @@ const ROLE_OPTIONS = [
 ];
 
 export default function NewUserPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");

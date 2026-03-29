@@ -10,7 +10,7 @@ import {
   Clock,
   TrendingUp,
 } from "lucide-react";
-import { formatDate, STATUS_COLORS, STATUS_LABELS, PRIORITY_COLORS, PRIORITY_LABELS } from "@/lib/utils";
+import { formatDate, STATUS_COLORS, STATUS_LABELS } from "@/lib/utils";
 import { UserRole, MatterStatus } from "@prisma/client";
 import Link from "next/link";
 

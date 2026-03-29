@@ -10,7 +10,7 @@ import { UserRole } from "@prisma/client";
  * Returns matters the user can access, along with their kanban card info,
  * so the UI can offer "add action item" (set due date) for matters without one.
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {

@@ -2,8 +2,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit";
-import { sendNotification } from "@/lib/trust/notifications";
-import { isAccountStale } from "@/lib/trust/balance";
 
 export async function POST(
   req: Request,

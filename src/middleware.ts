@@ -33,16 +33,6 @@ const PUBLIC_ROUTES = [
 // Routes only accessible by CLIENT role
 const PORTAL_ROUTES = ["/portal"];
 
-// Routes only accessible by firm users (non-client)
-const FIRM_ROUTES = [
-  "/dashboard",
-  "/cases",
-  "/clients",
-  "/documents",
-  "/admin",
-  "/settings",
-];
-
 // Routes only accessible by SUPER_ADMIN
 const SUPERADMIN_ROUTES = ["/admin/platform"];
 

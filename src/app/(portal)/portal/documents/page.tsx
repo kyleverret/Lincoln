@@ -11,8 +11,6 @@ import {
   formatFileSize,
   DOCUMENT_CATEGORY_LABELS,
 } from "@/lib/utils";
-import { audit } from "@/lib/audit";
-import { headers } from "next/headers";
 
 export const metadata = { title: "My Documents" };
 

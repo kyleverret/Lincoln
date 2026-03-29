@@ -47,7 +47,7 @@ export default function TimeEntriesPage() {
 
     const form = new FormData(e.currentTarget);
     const matterId = form.get("matterId") as string;
-    const matter = matters.find((m) => m.id === matterId);
+    const _matter = matters.find((m) => m.id === matterId);
 
     const body = {
       matterId,

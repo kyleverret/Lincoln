@@ -13,7 +13,7 @@ const createSchema = z.object({
   staleThresholdDays: z.number().int().min(1).max(365).default(7),
 });
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!session.user.tenantId) return Response.json({ error: "Unauthorized" }, { status: 401 });

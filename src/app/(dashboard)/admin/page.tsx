@@ -15,7 +15,6 @@ import {
   UserX,
 } from "lucide-react";
 import Link from "next/link";
-import { UserRole } from "@prisma/client";
 import { hasPermission, ROLE_LABELS } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { formatDate, formatDateTime } from "@/lib/utils";

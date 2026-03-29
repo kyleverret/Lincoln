@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { Scale, Home, FolderOpen, MessageSquare, LogOut } from "lucide-react";
+import { Scale, Home, FolderOpen, MessageSquare } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 

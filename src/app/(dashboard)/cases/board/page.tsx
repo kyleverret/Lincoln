@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { UserRole } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import type { KanbanColumnData } from "@/components/cases/kanban-board";
 import { KanbanBoardWrapper } from "@/components/cases/kanban-board-wrapper";
@@ -13,7 +12,7 @@ export default async function BoardPage() {
   const session = await auth();
   if (!session?.user?.tenantId) redirect("/login");
 
-  const { tenantId, role, id: userId } = session.user;
+  const { tenantId, role } = session.user;
   const canManage = hasPermission(role, "KANBAN_MANAGE");
 
   // Get or create default board for this tenant

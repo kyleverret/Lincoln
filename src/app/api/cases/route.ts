@@ -7,7 +7,7 @@ import { createMatterSchema } from "@/lib/validations/matter";
 import { generateMatterNumber } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.tenantId) {

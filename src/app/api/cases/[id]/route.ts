@@ -6,8 +6,6 @@ import { hasPermission } from "@/lib/permissions";
 import { updateMatterSchema } from "@/lib/validations/matter";
 import { UserRole } from "@prisma/client";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
@@ -134,7 +132,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { tenantId, role, id: userId } = session.user;
+    const { tenantId, role } = session.user;
     const { id } = await params;
 
     if (!hasPermission(role, "MATTER_CLOSE")) {

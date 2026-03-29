@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Send, Plus, MessageSquare, ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 
 interface Contact {

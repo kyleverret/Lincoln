@@ -18,7 +18,6 @@ const LOCKOUT_DURATION_MINUTES = parseInt(
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: PrismaAdapter(db) as any,
   session: {
     strategy: "jwt",

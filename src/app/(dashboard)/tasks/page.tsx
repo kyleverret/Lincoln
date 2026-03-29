@@ -7,7 +7,7 @@ import Link from "next/link";
 import { formatDistanceToNow, isPast, isWithinInterval, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
-import { KanbanSquare, List } from "lucide-react";
+import { KanbanSquare } from "lucide-react";
 
 export const metadata = { title: "Tasks — Lincoln" };
 
@@ -182,7 +182,7 @@ function TaskSection({
   title,
   tasks,
   variant,
-  now,
+  now: _now,
 }: {
   title: string;
   tasks: TaskCard[];

@@ -5,14 +5,13 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   FileText,
   Upload,
   Download,
   FolderOpen,
   Lock,
-  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { UserRole, Prisma } from "@prisma/client";

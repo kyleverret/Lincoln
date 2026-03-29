@@ -30,7 +30,7 @@ const LINE_ITEM_TYPES: Record<LineItemType, string> = {
 export default function NewInvoicePage() {
   const router = useRouter();
   const [matters, setMatters] = useState<Matter[]>([]);
-  const [selectedMatter, setSelectedMatter] = useState<Matter | null>(null);
+  const [_selectedMatter, setSelectedMatter] = useState<Matter | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { type: "TIME", description: "", quantity: "1", unitPrice: "" },
   ]);

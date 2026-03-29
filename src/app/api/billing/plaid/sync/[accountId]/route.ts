@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { decryptField } from "@/lib/encryption";
 import { writeAuditLog } from "@/lib/audit";
-import { PlaidApi, PlaidEnvironments, Configuration, RemovedTransaction } from "plaid";
+import { PlaidApi, PlaidEnvironments, Configuration } from "plaid";
 import { TrustTransactionType, TrustTransactionStatus } from "@prisma/client";
 
 function getPlaidClient() {

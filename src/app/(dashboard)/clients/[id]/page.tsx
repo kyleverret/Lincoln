@@ -16,13 +16,11 @@ import {
   Shield,
   FileText,
   FolderOpen,
-  Calendar,
   User,
   ExternalLink,
 } from "lucide-react";
 import {
   formatDate,
-  formatDateTime,
   formatFileSize,
   DOCUMENT_CATEGORY_LABELS,
   STATUS_COLORS,

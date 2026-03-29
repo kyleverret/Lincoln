@@ -17,8 +17,6 @@ import {
   formatDate,
   STATUS_COLORS,
   STATUS_LABELS,
-  PRIORITY_COLORS,
-  PRIORITY_LABELS,
 } from "@/lib/utils";
 import { audit } from "@/lib/audit";
 import { headers } from "next/headers";

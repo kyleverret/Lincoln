@@ -26,7 +26,7 @@ function getPlaidClient() {
   return new PlaidApi(config);
 }
 
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.role, "BANK_ACCOUNT_MANAGE")) {

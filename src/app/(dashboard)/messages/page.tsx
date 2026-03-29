@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { hasPermission } from "@/lib/permissions";
 import { UserRole } from "@prisma/client";
 import { MessagesClient } from "@/components/messages/messages-client";
 

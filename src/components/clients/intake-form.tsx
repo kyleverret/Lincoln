@@ -31,7 +31,7 @@ const PRACTICE_AREAS = [
   "Other",
 ];
 
-export function IntakeForm({ tenantId }: IntakeFormProps) {
+export function IntakeForm({ tenantId: _tenantId }: IntakeFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

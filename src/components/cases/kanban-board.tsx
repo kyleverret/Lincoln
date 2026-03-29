@@ -38,8 +38,6 @@ import Link from "next/link";
 import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
-  STATUS_COLORS,
-  STATUS_LABELS,
   formatDate,
   cn,
 } from "@/lib/utils";
