@@ -470,20 +470,33 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+### BUG-033: Overdue indicator shown for cards in terminal (done) columns
+
+- **Status:** FIXED
+- **Severity:** P2
+- **Found:** 2026-03-29 (KB-09 requirement audit)
+- **Fixed:** 2026-03-29 (commit `7381d03`)
+- **Principle Violated:** KB-09 — Overdue cards (past due date, *not in final column*) display a visual overdue indicator
+- **Root Cause:** `KanbanColumnData` interface did not include `isTerminal`, so the card components had no way to determine if their column was a terminal/done column. `isOverdue` was computed as `card.dueDate && new Date(card.dueDate) < new Date()` with no terminal-column guard.
+- **Why it was coded this way:** The initial overdue implementation focused on the date comparison and missed the "not in final column" qualifier in the requirement. `isTerminal` data was available in the Prisma schema but was not propagated to the frontend type.
+- **Resolution:** Added `isTerminal: boolean` to `KanbanColumnData`. Updated `KanbanCard`, `SortableCard`, `MobileCard`, and `DragOverlay` to receive/compute `isTerminalColumn` and exclude terminal columns from the overdue check. Updated both board page column-mapping transforms to include `isTerminal`.
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
-| FIXED | 29 |
+| FIXED | 30 |
 | OPEN | 2 |
 | DEFERRED | 4 |
-| **Total** | **35** |
+| **Total** | **36** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 0 | 6 |
 | P1 | 0 | 12 |
-| P2 | 0 | 12 |
+| P2 | 0 | 13 |
 | P3 | 2 | 0 |
 
 ---
