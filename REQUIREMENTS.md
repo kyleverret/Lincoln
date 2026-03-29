@@ -606,3 +606,40 @@ The following are explicitly out of scope for the initial release:
 - AU-06: Cross-tenant audit query
 - KB-03: Column reorder
 - KB-05: Card description field
+
+---
+
+## 12. Backlog — Unscoped Items
+
+> **How to use this section:**
+>
+> Add items here when you have a feature idea or bug report but haven't decided on priority yet.
+> Claude will treat these as lower priority than P3 until you explicitly move them into a priority tier in §11.
+>
+> **To add an item:**
+> 1. Assign the next available requirement ID in the relevant §3.x functional section (e.g. `BL-07`, `CP-07`).
+> 2. Write one line describing what the feature or fix should do — be specific enough to be actionable.
+> 3. Add a row to the §11 audit table for that section with `Status: FAIL` or `PARTIAL`.
+> 4. Add a bullet here under the appropriate category.
+>
+> **To promote an item:**
+> Move the bullet from this section into the appropriate P0–P3 tier in §11 Priority Tiers,
+> then tell Claude — it will pick it up in the next working session.
+
+### UX / Dashboard
+*(none yet)*
+
+### Client Portal
+*(none yet)*
+
+### Billing
+*(none yet)*
+
+### Matters & Cases
+*(none yet)*
+
+### Admin & Settings
+*(none yet)*
+
+### Other
+*(none yet)*
