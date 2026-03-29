@@ -58,9 +58,13 @@ export default auth((req: NextRequest & { auth: any }) => {
 
   const { role } = session.user;
 
-  // Clients can only access portal routes
+  // Clients can only access portal routes and API routes
+  // (API routes are called by portal client components via fetch)
   if (role === CLIENT) {
-    if (!PORTAL_ROUTES.some((r) => pathname.startsWith(r))) {
+    if (
+      !PORTAL_ROUTES.some((r) => pathname.startsWith(r)) &&
+      !pathname.startsWith("/api/")
+    ) {
       return NextResponse.redirect(new URL("/portal", req.url));
     }
     return NextResponse.next();
