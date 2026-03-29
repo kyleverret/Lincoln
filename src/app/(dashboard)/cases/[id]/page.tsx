@@ -40,6 +40,7 @@ import { NotesSection, type NoteItem } from "@/components/cases/notes-section";
 import { DocumentVisibilityToggle } from "@/components/cases/document-visibility-toggle";
 import { AddTaskDialog } from "@/components/tasks/add-task-dialog";
 import { LogTimeSection } from "@/components/billing/log-time-section";
+import { StageSelector } from "@/components/cases/stage-selector";
 import { hasPermission } from "@/lib/permissions";
 
 export const metadata = { title: "Case Detail" };
@@ -138,8 +139,10 @@ export default async function CaseDetailPage({ params }: PageProps) {
     role === UserRole.SUPER_ADMIN || role === UserRole.FIRM_ADMIN;
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-  // Fetch tasks and time entries for this matter
-  const [tasks, rawTimeEntries] = await Promise.all([
+  const canUseKanban = hasPermission(role, "KANBAN_USE");
+
+  // Fetch tasks, time entries, and project stage for this matter
+  const [tasks, rawTimeEntries, stageCard] = await Promise.all([
     db.kanbanCard.findMany({
       where: {
         matterId: matter.id,
@@ -156,7 +159,26 @@ export default async function CaseDetailPage({ params }: PageProps) {
           take: 20,
         })
       : Promise.resolve([]),
+    db.kanbanCard.findFirst({
+      where: {
+        matterId: matter.id,
+        column: { board: { tenantId, boardType: "CASE_STAGE" } },
+      },
+      include: {
+        column: {
+          select: { id: true, name: true, color: true, isTerminal: true, boardId: true },
+        },
+      },
+    }),
   ]);
+
+  const stageColumns = stageCard
+    ? await db.kanbanColumn.findMany({
+        where: { boardId: stageCard.column.boardId },
+        orderBy: { position: "asc" },
+        select: { id: true, name: true, color: true, isTerminal: true },
+      })
+    : [];
 
   // Serialize Prisma Decimal fields to numbers for client component
   const timeEntries = rawTimeEntries.map((e) => ({
@@ -229,6 +251,20 @@ export default async function CaseDetailPage({ params }: PageProps) {
                   </Badge>
                   {matter.practiceArea && (
                     <Badge variant="secondary">{matter.practiceArea.name}</Badge>
+                  )}
+                  {stageCard && stageColumns.length > 0 && (
+                    <div className="flex items-center gap-1 border rounded-md px-2 py-0.5 bg-white">
+                      <Building2 className="h-3 w-3 text-muted-foreground" />
+                      {canUseKanban ? (
+                        <StageSelector
+                          cardId={stageCard.id}
+                          currentColumnId={stageCard.columnId}
+                          columns={stageColumns}
+                        />
+                      ) : (
+                        <span className="text-xs">{stageCard.column.name}</span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
