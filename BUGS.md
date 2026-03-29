@@ -496,19 +496,32 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 ---
 
+### BUG-035: Portal login completely broken — no activation flow to create portal user accounts
+
+- **Status:** FIXED
+- **Severity:** P1
+- **Found:** 2026-03-29 (portal flow audit)
+- **Fixed:** 2026-03-29 (commit `a7b9005`)
+- **Principle Violated:** CP-06 / IN-05 — Clients can send messages / receive portal activation
+- **Root Cause:** The auth `authorize` function requires at least one active `TenantUser` record to proceed (line 129: `if (activeTenants.length === 0) return null`). Portal clients are `User` records with `role: CLIENT` that also need a `TenantUser` record. No endpoint existed to: (1) create the portal `User`, (2) create the `TenantUser`, (3) set `Client.portalUserId`, or (4) set `Client.portalEnabled = true`. Without an activation endpoint, no client could ever log into the portal.
+- **Why it was coded this way:** The portal pages and auth logic were implemented, but the activation flow (the bridge between "client in the system" and "client with portal credentials") was never built.
+- **Resolution:** Created `POST /api/clients/[id]/portal` which creates the `User` + `TenantUser` records, links via `portalUserId`, and returns a one-time temporary password. Created `PortalAccessButton` client component (with copy-to-clipboard dialog) rendered on the client detail page for `FIRM_ADMIN` and `SUPER_ADMIN`. Handles both activation and password-reset cases.
+
+---
+
 ## Summary Statistics
 
 | Status | Count |
 |--------|-------|
-| FIXED | 31 |
+| FIXED | 32 |
 | OPEN | 2 |
 | DEFERRED | 4 |
-| **Total** | **37** |
+| **Total** | **38** |
 
 | Severity | Open | Fixed |
 |----------|------|-------|
 | P0 | 0 | 6 |
-| P1 | 0 | 13 |
+| P1 | 0 | 14 |
 | P2 | 0 | 13 |
 | P3 | 2 | 0 |
 
