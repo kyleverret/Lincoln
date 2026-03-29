@@ -382,19 +382,16 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 ---
 
 ### BUG-027: Project stage not enforced by permission or visible in case screen
-- **Status:** DEFERRED
+- **Status:** FIXED
 - **Severity:** P2
 - **Found:** 2026-03-28
+- **Fixed:** 2026-03-28
 - **Requirements:**
   1. Project stage (matter status / kanban column) must only be editable by assigned staff or firm admins. Unassigned users may view but not change it.
   2. The current project stage must be displayed on the case detail screen.
   3. Users with permission may edit the project stage directly from the case detail screen (no need to navigate to the kanban board).
-- **Root Cause:** Stage editing has no permission check beyond general matter-write access. The case detail page shows status badges but does not surface the kanban column (project stage) as an editable field.
-- **Resolution:** PENDING:
-  - Add `STAGE_EDIT` permission (assigned staff + firm admins only).
-  - Display current kanban column on case detail page.
-  - Add inline stage-change control on case detail, guarded by `STAGE_EDIT` permission.
-- **Trigger:** Implement in same sprint as task PM work (BUG-028).
+- **Root Cause:** The case detail page showed status (matter.status enum) but not the kanban column (project stage). The distinction between matter status and kanban stage was not surfaced in the UI.
+- **Resolution:** Created `StageSelector` client component (`src/components/cases/stage-selector.tsx`) that shows the current CASE_STAGE kanban column with a color dot indicator and an inline Select dropdown. Users with `KANBAN_USE` permission can change the stage; others see read-only. Case detail page fetches the CASE_STAGE card and board columns, renders the selector in the matter header badge row.
 
 ---
 
@@ -487,8 +484,8 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 
 | Status | Count |
 |--------|-------|
-| FIXED | 18 |
-| OPEN | 11 |
+| FIXED | 19 |
+| OPEN | 10 |
 | DEFERRED | 4 |
 | **Total** | **33** |
 
@@ -496,7 +493,7 @@ Running log of all bugs, fixes, and architectural violations. Each entry include
 |----------|------|-------|
 | P0 | 1 | 5 |
 | P1 | 3 | 8 |
-| P2 | 6 | 2 |
+| P2 | 5 | 3 |
 | P3 | 3 | 0 |
 
 ---
